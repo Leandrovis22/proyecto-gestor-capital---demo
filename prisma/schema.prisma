@@ -1,0 +1,202 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// MODELO DE CLIENTES
+// Representa cada archivo Excel en Drive
+// ========================================
+model Cliente {
+  id                  String   @id @default(cuid())
+  nombre              String   @unique // Nombre del archivo sin .xlsx
+  saldoAPagar         Decimal  @default(0) @db.Decimal(10,2) // Columna J2 del Excel
+  ultimaModificacion  DateTime @default(now())
+  archivoId           String?  @unique // ID del archivo en Google Drive
+  activo              Boolean  @default(true)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relaciones
+  pagos               Pago[]
+  ventas              Venta[]
+  registrosConsolidados RegistroConsolidado[]
+  
+  @@index([nombre])
+  @@index([saldoAPagar])
+  @@map("clientes")
+}
+
+// ========================================
+// REGISTROS CONSOLIDADOS
+// Equivalente a cada FILA de "Datos Consolidados"
+// Columnas H, I, J, K del Excel
+// ========================================
+model RegistroConsolidado {
+  id              String   @id @default(cuid())
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  
+  // Datos del Excel (columnas H, I, J, K)
+  fechaPago       DateTime? // Columna H (puede estar vacía)
+  entrega         Decimal   @default(0) @db.Decimal(10,2) // Columna I
+  saldoAPagar     Decimal   @default(0) @db.Decimal(10,2) // Columna J (mismo para todo el cliente)
+  columnaK        String?   // Columna K (tipo de pago)
+  
+  // Metadata
+  hojaOrigen      String?   // Nombre de la hoja del Excel
+  filaOrigen      Int?      // Número de fila en el Excel
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([clienteId])
+  @@index([fechaPago])
+  @@map("registros_consolidados")
+}
+
+// ========================================
+// PAGOS DE CLIENTES
+// Generado desde RegistroConsolidado
+// Solo registros con fechaPago Y entrega > 0
+// Desde 01/10/2025 en adelante
+// ========================================
+model Pago {
+  id              String   @id @default(cuid())
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  
+  fechaPago       DateTime // Fecha del pago
+  monto           Decimal  @db.Decimal(10,2) // Monto del pago (entrega)
+  tipoPago        String?  // Tipo de pago (columna K)
+  
+  // Numeración por día (calculado)
+  numeroPagoDia   Int?     // Número del pago en ese día (inverso)
+  
+  // Timestamp para ordenamiento
+  timestampArchivo DateTime @default(now()) // Hora de modificación del archivo
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([clienteId, fechaPago])
+  @@index([fechaPago(sort: Desc)])
+  @@map("pagos")
+}
+
+// ========================================
+// VENTAS
+// Generado desde columnas A-E de cada Excel
+// Agrupa por cliente + fecha (suma columna E)
+// Desde 01/10/2025 en adelante
+// ========================================
+model Venta {
+  id              String   @id @default(cuid())
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  
+  fechaVenta      DateTime // Columna A del Excel
+  totalVenta      Decimal  @db.Decimal(10,2) // Suma de columna E para esa fecha
+  
+  // Numeración por día (calculado)
+  numeroVentaDia  Int?     // Número de la venta en ese día (inverso)
+  
+  // Timestamp para ordenamiento (CRÍTICO: preservar original)
+  timestampArchivo DateTime // Hora de modificación del archivo cuando se creó la venta
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([clienteId, fechaVenta]) // Una venta por cliente por día
+  @@index([clienteId, fechaVenta])
+  @@index([fechaVenta(sort: Desc)])
+  @@map("ventas")
+}
+
+// ========================================
+// GASTOS
+// Ingreso manual del usuario
+// ========================================
+model Gasto {
+  id        String   @id @default(cuid())
+  fecha     DateTime
+  concepto  String
+  monto     Decimal  @db.Decimal(10,2)
+  categoria String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([fecha(sort: Desc)])
+  @@map("gastos")
+}
+
+// ========================================
+// INVERSIONES
+// Ingreso manual del usuario
+// ========================================
+model Inversion {
+  id        String   @id @default(cuid())
+  fecha     DateTime
+  concepto  String
+  monto     Decimal  @db.Decimal(10,2)
+  categoria String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([fecha(sort: Desc)])
+  @@map("inversiones")
+}
+
+// ========================================
+// CONTROL DE ARCHIVOS
+// Tracking de sincronización con Excel
+// Equivalente a la hoja "_Control" del VBA
+// ========================================
+model ArchivoControl {
+  id                   String   @id @default(cuid())
+  nombreArchivo        String   @unique // nombre.xlsx
+  archivoId            String?  // ID en Google Drive
+  ultimaModificacion   DateTime // FileDateTime del archivo
+  ultimaSincronizacion DateTime @default(now())
+  
+  // Estadísticas
+  totalRegistros       Int      @default(0)
+  sincronizacionExitosa Boolean @default(true)
+  errorMensaje         String?
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@index([nombreArchivo])
+  @@index([ultimaSincronizacion])
+  @@map("archivos_control")
+}
+
+// ========================================
+// LOG DE SINCRONIZACIÓN
+// Auditoría de cada sync
+// ========================================
+model LogSincronizacion {
+  id                    String   @id @default(cuid())
+  tipoOperacion         String   // "SYNC_FULL" | "SYNC_PARTIAL" | "SYNC_FILE"
+  archivosActualizados  Int      @default(0)
+  archivosOmitidos      Int      @default(0)
+  registrosProcesados   Int      @default(0)
+  exitoso               Boolean  @default(true)
+  errorMensaje          String?
+  duracionSegundos      Int?
+  
+  createdAt             DateTime @default(now())
+  
+  @@index([createdAt(sort: Desc)])
+  @@map("logs_sincronizacion")
+}
