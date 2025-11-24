@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     const gasto = await prisma.gasto.create({
       data: {
         fecha: new Date(body.fecha),
-        concepto: body.concepto,
+        descripcion: body.descripcion,
         monto: body.monto,
-        categoria: body.categoria
+        categoria: body.categoria,
+        confirmado: body.confirmado ?? true
       }
     });
     return NextResponse.json(gasto);

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const inversion = await prisma.inversion.create({
       data: {
         fecha: new Date(body.fecha),
-        concepto: body.concepto,
+        descripcion: body.descripcion,
         monto: body.monto,
         categoria: body.categoria
       }

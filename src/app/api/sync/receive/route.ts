@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     console.log(`📥 Recibiendo datos de: ${datos.nombreArchivo}`);
     
     // Iniciar transacción
-    const resultado = await prisma.$transaction(async (tx) => {
+    const resultado = await prisma.$transaction(async (tx: any) => {
       // 1. CREAR O ACTUALIZAR CLIENTE (buscar por archivoId, no por nombre)
       const cliente = await tx.cliente.upsert({
         where: { archivoId: datos.archivoId },
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       // 3. INSERTAR NUEVOS REGISTROS CONSOLIDADOS
       if (datos.registrosConsolidados.length > 0) {
         await tx.registroConsolidado.createMany({
-          data: datos.registrosConsolidados.map(reg => ({
+          data: datos.registrosConsolidados.map((reg: any) => ({
             clienteId: cliente.id,
             fechaPago: reg.fechaPago,
             entrega: reg.entrega,
@@ -206,7 +206,7 @@ async function regenerarPagos(tx: any, clienteId: string) {
   // Crear pagos
   if (registros.length > 0) {
     await tx.pago.createMany({
-      data: registros.map(reg => ({
+      data: registros.map((reg: any) => ({
         clienteId,
         fechaPago: reg.fechaPago!,
         monto: reg.entrega,
@@ -248,7 +248,7 @@ async function regenerarVentas(
   });
   
   const timestampsExistentes = new Map(
-    ventasExistentes.map(v => [
+    ventasExistentes.map((v: any) => [
       v.fechaVenta.toISOString().split('T')[0],
       v.timestampArchivo
     ])

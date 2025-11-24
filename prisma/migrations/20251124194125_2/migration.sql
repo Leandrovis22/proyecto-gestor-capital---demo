@@ -64,6 +64,7 @@ CREATE TABLE "gastos" (
     "concepto" TEXT NOT NULL,
     "monto" DECIMAL(10,2) NOT NULL,
     "categoria" TEXT,
+    "confirmado" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

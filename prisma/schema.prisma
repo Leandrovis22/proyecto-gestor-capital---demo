@@ -125,14 +125,15 @@ model Venta {
 // Ingreso manual del usuario
 // ========================================
 model Gasto {
-  id        String   @id @default(cuid())
-  fecha     DateTime
-  concepto  String
-  monto     Decimal  @db.Decimal(10,2)
-  categoria String?
+  id          String   @id @default(cuid())
+  fecha       DateTime
+  descripcion String   @map("concepto")
+  monto       Decimal  @db.Decimal(10,2)
+  categoria   String?
+  confirmado  Boolean  @default(true)
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@index([fecha(sort: Desc)])
   @@map("gastos")
@@ -143,14 +144,14 @@ model Gasto {
 // Ingreso manual del usuario
 // ========================================
 model Inversion {
-  id        String   @id @default(cuid())
-  fecha     DateTime
-  concepto  String
-  monto     Decimal  @db.Decimal(10,2)
-  categoria String?
+  id          String   @id @default(cuid())
+  fecha       DateTime
+  descripcion String   @map("concepto")
+  monto       Decimal  @db.Decimal(10,2)
+  categoria   String?
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@index([fecha(sort: Desc)])
   @@map("inversiones")
