@@ -28,6 +28,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [usarHoy, setUsarHoy] = useState(true);
+  const [detalleVisible, setDetalleVisible] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -116,6 +117,10 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
     let totalNoe = 0;
     let totalEfectivo = 0;
     let totalOtros = 0;
+    let pagosOsvaldo: Pago[] = [];
+    let pagosNoe: Pago[] = [];
+    let pagosEfectivo: Pago[] = [];
+    let pagosOtros: Pago[] = [];
 
     pagosFiltrados.forEach(pago => {
       const monto = parseFloat(pago.monto);
@@ -124,18 +129,22 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       // Buscar "osv" en el tipo (para cualquier variante de Osvaldo)
       if (tipoLower.includes('osv')) {
         totalOsvaldo += monto;
+        pagosOsvaldo.push(pago);
       } 
       // Buscar "noe" en el tipo (para cualquier variante de Noelia)
       else if (tipoLower.includes('noe')) {
         totalNoe += monto;
+        pagosNoe.push(pago);
       } 
       // Buscar "efe" para efectivo
       else if (tipoLower.includes('efe')) {
         totalEfectivo += monto;
+        pagosEfectivo.push(pago);
       } 
       // Todo lo demás va a otros
       else {
         totalOtros += monto;
+        pagosOtros.push(pago);
       }
     });
 
@@ -144,7 +153,11 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       totalNoe,
       totalEfectivo,
       totalOtros,
-      cantidadPagos: pagosFiltrados.length
+      cantidadPagos: pagosFiltrados.length,
+      pagosOsvaldo,
+      pagosNoe,
+      pagosEfectivo,
+      pagosOtros
     };
   };
 
@@ -230,41 +243,113 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       {/* Estadísticas por tipo de pago */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Osvaldo */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow duration-200">
+        <div 
+          onClick={() => setDetalleVisible(detalleVisible === 'osvaldo' ? null : 'osvaldo')}
+          className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
+        >
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Tra Osvaldo</h4>
             
           </div>
           <p className="text-3xl font-bold text-blue-700">{formatMoney(stats.totalOsvaldo.toString())}</p>
+          <p className="text-xs text-blue-600 mt-2 font-medium">{stats.pagosOsvaldo.length} pagos - Click para ver detalle</p>
         </div>
 
         {/* Noe */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-200">
+        <div 
+          onClick={() => setDetalleVisible(detalleVisible === 'noe' ? null : 'noe')}
+          className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
+        >
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Tra Noe</h4>
             
           </div>
           <p className="text-3xl font-bold text-purple-700">{formatMoney(stats.totalNoe.toString())}</p>
+          <p className="text-xs text-purple-600 mt-2 font-medium">{stats.pagosNoe.length} pagos - Click para ver detalle</p>
         </div>
 
         {/* Efectivo */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-200">
+        <div 
+          onClick={() => setDetalleVisible(detalleVisible === 'efectivo' ? null : 'efectivo')}
+          className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
+        >
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Efectivo</h4>
             <span className="text-3xl">💵</span>
           </div>
           <p className="text-3xl font-bold text-green-700">{formatMoney(stats.totalEfectivo.toString())}</p>
+          <p className="text-xs text-green-600 mt-2 font-medium">{stats.pagosEfectivo.length} pagos - Click para ver detalle</p>
         </div>
 
         {/* Otros */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-lg p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-200">
+        <div 
+          onClick={() => setDetalleVisible(detalleVisible === 'otros' ? null : 'otros')}
+          className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-lg p-6 border-l-4 border-orange-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
+        >
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Otros/Sin Cat.</h4>
             <span className="text-3xl">❓</span>
           </div>
           <p className="text-3xl font-bold text-orange-700">{formatMoney(stats.totalOtros.toString())}</p>
+          <p className="text-xs text-orange-600 mt-2 font-medium">{stats.pagosOtros.length} pagos - Click para ver detalle</p>
         </div>
       </div>
+
+      {/* Detalle de pagos por categoría */}
+      {detalleVisible && (
+        <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-500">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">
+              📋 Detalle de {
+                detalleVisible === 'osvaldo' ? 'Transferencias Osvaldo' :
+                detalleVisible === 'noe' ? 'Transferencias Noe' :
+                detalleVisible === 'efectivo' ? 'Pagos en Efectivo' :
+                'Otros Pagos'
+              }
+            </h3>
+            <button
+              onClick={() => setDetalleVisible(null)}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
+            >
+              ✕ Cerrar
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Cliente</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Monto</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tipo</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {(detalleVisible === 'osvaldo' ? stats.pagosOsvaldo :
+                  detalleVisible === 'noe' ? stats.pagosNoe :
+                  detalleVisible === 'efectivo' ? stats.pagosEfectivo :
+                  stats.pagosOtros
+                ).map((pago) => (
+                  <tr key={pago.id} className="hover:bg-blue-50 transition-colors duration-150">
+                    <td className="px-6 py-4 text-sm text-gray-500 font-medium">#{pago.numeroPagoDia}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 font-semibold">{formatDate(pago.fechaPago)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                      {clientes.get(pago.clienteId)?.nombre || 'Desconocido'}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {pago.tipoPago}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Total del período */}
       <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl shadow-lg p-8 border-l-4 border-indigo-500 hover:shadow-xl transition-shadow duration-200">
