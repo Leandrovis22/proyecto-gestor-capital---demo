@@ -280,6 +280,9 @@ export async function GET(request: NextRequest) {
     const gastosAct = Number(gastosSemanaActual._sum.monto || 0);
     const capitalSemanaActual = inversionesAct + pagosAct - ventasAct - gastosAct;
 
+    // Obtener estado de sincronización (si existe) para usar su marca de tiempo
+    const syncEstado = await prisma.syncStatus.findUnique({ where: { id: 'google-apps-script' } });
+
     return NextResponse.json({
       capital: {
         total: capital,
@@ -315,7 +318,7 @@ export async function GET(request: NextRequest) {
       ultimasPagos,
       ultimasVentas,
       clientesDeudores,
-      fechaActualizacion: new Date()
+      fechaActualizacion: syncEstado ? syncEstado.ultimaActualizacion : new Date()
     });
     
   } catch (error) {

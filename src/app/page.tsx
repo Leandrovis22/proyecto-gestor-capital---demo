@@ -23,6 +23,12 @@ export default function Home() {
   useEffect(() => {
     // Verificar si hay token de sesión guardado
     const savedToken = sessionStorage.getItem('sessionToken');
+    const savedLastUpdate = sessionStorage.getItem('lastUpdate');
+
+    if (savedLastUpdate) {
+      setLastUpdate(savedLastUpdate);
+    }
+
     if (savedToken) {
       setSessionToken(savedToken);
       setIsAuthenticated(true);
@@ -38,6 +44,11 @@ export default function Home() {
     fetchSyncStatus(token);
   };
 
+  const handleUpdateFromDashboard = (fecha: string) => {
+    setLastUpdate(fecha);
+    sessionStorage.setItem('lastUpdate', fecha); // Persistir la última actualización desde el Dashboard
+  };
+
   async function fetchSyncStatus(token: string) {
     try {
       const estadoResponse = await fetch('/api/sync/webhook', {
@@ -50,7 +61,22 @@ export default function Home() {
 
       const estadoData = await estadoResponse.json();
       if (estadoData.success && estadoData.estado) {
-        setLastUpdate(estadoData.estado.ultimaActualizacion);
+        // Actualizar lastUpdate sólo si el valor entrante es más reciente que el actual
+        try {
+          const incoming = new Date(estadoData.estado.ultimaActualizacion).getTime();
+          const stored = sessionStorage.getItem('lastUpdate') || lastUpdate || null;
+          const current = stored ? new Date(stored).getTime() : 0;
+          if (incoming > current) {
+            setLastUpdate(estadoData.estado.ultimaActualizacion);
+            sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
+          }
+        } catch (e) {
+          // Si hay problema al parsear fechas, usar el valor entrante solo si no existe uno previo
+          if (!sessionStorage.getItem('lastUpdate') && !lastUpdate) {
+            setLastUpdate(estadoData.estado.ultimaActualizacion);
+            sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
+          }
+        }
         setSyncStatus(estadoData.estado.mensaje);
         const running = estadoData.estado.estado === 'en_progreso';
         setSyncRunning(running);
@@ -135,7 +161,21 @@ export default function Home() {
 
             const estadoData = await estadoResponse.json();
             if (estadoData.success && estadoData.estado) {
-              setLastUpdate(estadoData.estado.ultimaActualizacion);
+              // Solo actualizar si la marca de tiempo entrante es más reciente
+              try {
+                const incoming = new Date(estadoData.estado.ultimaActualizacion).getTime();
+                const stored = sessionStorage.getItem('lastUpdate') || lastUpdate || null;
+                const current = stored ? new Date(stored).getTime() : 0;
+                if (incoming > current) {
+                  setLastUpdate(estadoData.estado.ultimaActualizacion);
+                  sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
+                }
+              } catch (e) {
+                if (!sessionStorage.getItem('lastUpdate') && !lastUpdate) {
+                  setLastUpdate(estadoData.estado.ultimaActualizacion);
+                  sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
+                }
+              }
               setSyncStatus(estadoData.estado.mensaje);
               const running = estadoData.estado.estado === 'en_progreso';
               setSyncRunning(running);
@@ -157,10 +197,6 @@ export default function Home() {
     } finally {
       setIsRefreshing(false);
     }
-  };
-
-  const handleUpdateFromDashboard = (fecha: string) => {
-    setLastUpdate(fecha);
   };
 
   useEffect(() => {
