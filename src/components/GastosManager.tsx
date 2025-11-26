@@ -33,6 +33,7 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
     return `${year}-${month}-${day}`;
   });
   const [confirmado, setConfirmado] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     fetchGastos();
@@ -74,6 +75,7 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
       return;
     }
 
+    setActionLoading(true);
     try {
       const url = editingId ? `/api/gastos/${editingId}` : '/api/gastos';
       const method = editingId ? 'PUT' : 'POST';
@@ -101,6 +103,8 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
     } catch (error) {
       console.error('Error:', error);
       alert('Error al guardar gasto');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -116,6 +120,7 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
 
+    setActionLoading(true);
     try {
       const response = await authFetch(`/api/gastos/${id}`, {
         method: 'DELETE',
@@ -129,10 +134,13 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
     } catch (error) {
       console.error('Error:', error);
       alert('Error al eliminar gasto');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleToggleConfirmado = async (gasto: Gasto) => {
+    setActionLoading(true);
     try {
       const response = await authFetch(`/api/gastos/${gasto.id}`, {
         method: 'PUT',
@@ -152,6 +160,8 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
     } catch (error) {
       console.error('Error:', error);
       alert('Error al actualizar gasto');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -346,9 +356,10 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md"
+                disabled={actionLoading}
+                className={`px-8 py-3 ${actionLoading ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-blue-700'} text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md`}
               >
-                {editingId ? 'Actualizar' : 'Guardar'}
+                {actionLoading ? 'Cargando...' : editingId ? 'Actualizar' : 'Guardar'}
               </button>
               <button
                 onClick={resetForm}
@@ -444,10 +455,11 @@ export default function GastosManager({ refreshKey }: GastosManagerProps) {
                         </button>
                         <button
                           onClick={() => handleDelete(gasto.id)}
-                          className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm"
+                          disabled={actionLoading}
+                          className={`px-3 py-1.5 ${actionLoading ? 'bg-gray-400' : 'bg-red-100'} text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm`}
                           title="Eliminar"
                         >
-                          🗑️
+                          {actionLoading ? 'Cargando...' : '🗑️'}
                         </button>
                       </div>
                     </td>

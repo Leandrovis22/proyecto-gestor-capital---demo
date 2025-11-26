@@ -9,6 +9,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model SyncStatus {
+  id                   String   @id @default("google-apps-script")
+  estado               String   // 'en_progreso', 'completado', 'error'
+  ultimaActualizacion  DateTime @default(now())
+  archivosActualizados Int      @default(0)
+  archivosOmitidos     Int      @default(0)
+  totalArchivos        Int      @default(0)
+  porcentaje           Int      @default(0)
+  duracionSegundos     Int      @default(0)
+  errores              Int      @default(0)
+  exito                Boolean  @default(false)
+  mensaje              String?
+  
+  @@map("sync_status")
+}
+
 // ========================================
 // MODELO DE CLIENTES
 // Representa cada archivo Excel en Drive

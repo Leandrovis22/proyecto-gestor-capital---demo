@@ -21,6 +21,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'semana' | 'mes'>('todos');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [descripcion, setDescripcion] = useState('');
   const [monto, setMonto] = useState('');
@@ -71,6 +72,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
       return;
     }
 
+    setActionLoading(true);
     try {
       const url = editingId ? `/api/inversiones/${editingId}` : '/api/inversiones';
       const method = editingId ? 'PUT' : 'POST';
@@ -97,6 +99,8 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
     } catch (error) {
       console.error('Error:', error);
       alert('Error al guardar inversión');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -111,6 +115,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta inversión?')) return;
 
+    setActionLoading(true);
     try {
       const response = await authFetch(`/api/inversiones/${id}`, {
         method: 'DELETE',
@@ -124,6 +129,8 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
     } catch (error) {
       console.error('Error:', error);
       alert('Error al eliminar inversión');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -287,9 +294,10 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 font-semibold shadow-md"
+                disabled={actionLoading}
+                className={`px-8 py-3 ${actionLoading ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-indigo-700'} text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 font-semibold shadow-md`}
               >
-                {editingId ? 'Actualizar' : 'Guardar'}
+                {actionLoading ? 'Cargando...' : editingId ? 'Actualizar' : 'Guardar'}
               </button>
               <button
                 onClick={resetForm}
@@ -357,10 +365,11 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
                         </button>
                         <button
                           onClick={() => handleDelete(inversion.id)}
-                          className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm"
+                          disabled={actionLoading}
+                          className={`px-3 py-1.5 ${actionLoading ? 'bg-gray-400' : 'bg-red-100'} text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm`}
                           title="Eliminar"
                         >
-                          🗑️
+                          {actionLoading ? 'Cargando...' : '🗑️'}
                         </button>
                       </div>
                     </td>

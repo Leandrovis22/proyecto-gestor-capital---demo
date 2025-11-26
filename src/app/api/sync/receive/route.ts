@@ -76,13 +76,13 @@ export async function POST(request: NextRequest) {
     
     console.log(`📥 Recibiendo datos de: ${datos.nombreArchivo}`);
     
-    // Iniciar transacción
+    // SOLUCIÓN: Aumentar timeout de transacción a 30 segundos
     const resultado = await prisma.$transaction(async (tx: any) => {
-      // 1. CREAR O ACTUALIZAR CLIENTE (buscar por archivoId, no por nombre)
+      // 1. CREAR O ACTUALIZAR CLIENTE (buscar por archivoId)
       const cliente = await tx.cliente.upsert({
         where: { archivoId: datos.archivoId },
         update: {
-          nombre: datos.nombreArchivo, // Actualizar nombre si cambió
+          nombre: datos.nombreArchivo,
           saldoAPagar: datos.saldoAPagar || 0,
           ultimaModificacion: datos.fechaModificacion
         },
@@ -114,10 +114,10 @@ export async function POST(request: NextRequest) {
         });
       }
       
-      // 4. REGENERAR PAGOS desde registros consolidados
+      // 4. REGENERAR PAGOS (DENTRO de la transacción)
       await regenerarPagos(tx, cliente.id);
       
-      // 5. REGENERAR VENTAS desde registros de ventas
+      // 5. REGENERAR VENTAS (DENTRO de la transacción)
       await regenerarVentas(tx, cliente.id, datos.registrosVentas, datos.fechaModificacion);
       
       // 6. ACTUALIZAR CONTROL DE ARCHIVO
@@ -145,6 +145,9 @@ export async function POST(request: NextRequest) {
         registrosConsolidados: datos.registrosConsolidados.length,
         registrosVentas: datos.registrosVentas.length
       };
+    }, {
+      maxWait: 30000, // Esperar hasta 30s para adquirir conexión
+      timeout: 30000,  // Timeout de 30s para la transacción completa
     });
     
     const duracion = Math.round((Date.now() - inicioTiempo) / 1000);
@@ -161,18 +164,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Error en sincronización:', error);
     
-    // Registrar error en control
-    try {
-      const body = await request.json();
-      await prisma.archivoControl.update({
-        where: { nombreArchivo: body.nombreArchivo + '.xlsx' },
-        data: {
-          sincronizacionExitosa: false,
-          errorMensaje: error instanceof Error ? error.message : 'Error desconocido'
-        }
-      });
-    } catch {}
-    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Error al procesar datos' },
       { status: 500 }
@@ -181,7 +172,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ========================================
-// FUNCIÓN: Regenerar Pagos
+// FUNCIÓN: Regenerar Pagos (OPTIMIZADA)
 // ========================================
 
 async function regenerarPagos(tx: any, clienteId: string) {
@@ -200,28 +191,47 @@ async function regenerarPagos(tx: any, clienteId: string) {
         { fechaPago: { gte: FECHA_LIMITE_PAGOS } }
       ]
     },
-    orderBy: { fechaPago: 'desc' }
+    orderBy: [
+      { fechaPago: 'desc' }
+    ]
   });
   
-  // Crear pagos
+  // Crear pagos con numeración calculada de antemano
   if (registros.length > 0) {
-    await tx.pago.createMany({
-      data: registros.map((reg: any) => ({
-        clienteId,
-        fechaPago: reg.fechaPago!,
-        monto: reg.entrega,
-        tipoPago: reg.columnaK,
-        timestampArchivo: new Date()
-      }))
-    });
+    // Agrupar por día para calcular numeración
+    const pagosPorDia = new Map<string, typeof registros>();
+    
+    for (const reg of registros) {
+      const diaKey = reg.fechaPago!.toISOString().split('T')[0];
+      if (!pagosPorDia.has(diaKey)) {
+        pagosPorDia.set(diaKey, []);
+      }
+      pagosPorDia.get(diaKey)!.push(reg);
+    }
+    
+    // Crear pagos con numeración ya calculada
+    const pagosData = [];
+    for (const [dia, regs] of pagosPorDia.entries()) {
+      const total = regs.length;
+      for (let i = 0; i < total; i++) {
+        pagosData.push({
+          clienteId,
+          fechaPago: regs[i].fechaPago!,
+          monto: regs[i].entrega,
+          tipoPago: regs[i].columnaK,
+          timestampArchivo: new Date(),
+          numeroPagoDia: total - i // Numeración inversa
+        });
+      }
+    }
+    
+    // INSERCIÓN BATCH en lugar de updates individuales
+    await tx.pago.createMany({ data: pagosData });
   }
-  
-  // Calcular numeración por día (se hace después con un query)
-  await calcularNumeracionPagos(tx);
 }
 
 // ========================================
-// FUNCIÓN: Regenerar Ventas
+// FUNCIÓN: Regenerar Ventas (OPTIMIZADA)
 // ========================================
 
 async function regenerarVentas(
@@ -254,99 +264,48 @@ async function regenerarVentas(
     ])
   );
   
-  // Eliminar ventas antiguas de este cliente
+  // Eliminar ventas antiguas
   await tx.venta.deleteMany({
     where: { clienteId }
   });
   
-  // Crear nuevas ventas
+  // Crear ventas con numeración ya calculada
   if (ventasAgrupadas.size > 0) {
-    const ventasData = Array.from(ventasAgrupadas.entries()).map(([fechaStr, total]) => {
-      const fecha = new Date(fechaStr);
-      
-      // CRÍTICO: Preservar timestamp original si existe
-      const timestamp = timestampsExistentes.get(fechaStr) || timestampArchivo;
-      
-      return {
-        clienteId,
-        fechaVenta: fecha,
-        totalVenta: total,
-        timestampArchivo: timestamp
-      };
-    });
+    // Ordenar fechas descendente
+    const fechasOrdenadas = Array.from(ventasAgrupadas.keys()).sort().reverse();
     
+    // Agrupar por día para numeración
+    const ventasPorDia = new Map<string, Array<{ fecha: Date; total: number; timestamp: Date }>>();
+    
+    for (const fechaStr of fechasOrdenadas) {
+      const fecha = new Date(fechaStr);
+      const total = ventasAgrupadas.get(fechaStr)!;
+      const timestampExistente = timestampsExistentes.get(fechaStr);
+      const timestamp: Date = timestampExistente instanceof Date ? timestampExistente : timestampArchivo;
+      
+      const diaKey = fechaStr; // Ya está en formato YYYY-MM-DD
+      if (!ventasPorDia.has(diaKey)) {
+        ventasPorDia.set(diaKey, []);
+      }
+      ventasPorDia.get(diaKey)!.push({ fecha, total, timestamp });
+    }
+    
+    // Crear ventas con numeración
+    const ventasData = [];
+    for (const [dia, ventas] of ventasPorDia.entries()) {
+      const totalDia = ventas.length;
+      for (let i = 0; i < totalDia; i++) {
+        ventasData.push({
+          clienteId,
+          fechaVenta: ventas[i].fecha,
+          totalVenta: ventas[i].total,
+          timestampArchivo: ventas[i].timestamp,
+          numeroVentaDia: totalDia - i // Numeración inversa
+        });
+      }
+    }
+    
+    // INSERCIÓN BATCH
     await tx.venta.createMany({ data: ventasData });
-  }
-  
-  // Calcular numeración por día
-  await calcularNumeracionVentas(tx);
-}
-
-// ========================================
-// FUNCIÓN: Calcular numeración de pagos por día
-// ========================================
-
-async function calcularNumeracionPagos(tx: any) {
-  // Obtener todos los pagos ordenados
-  const pagos = await tx.pago.findMany({
-    orderBy: [
-      { fechaPago: 'desc' },
-      { timestampArchivo: 'desc' }
-    ]
-  });
-  
-  // Agrupar por día y asignar numeración
-  const pagosPorDia = new Map<string, typeof pagos>();
-  
-  for (const pago of pagos) {
-    const diaKey = pago.fechaPago.toISOString().split('T')[0];
-    if (!pagosPorDia.has(diaKey)) {
-      pagosPorDia.set(diaKey, []);
-    }
-    pagosPorDia.get(diaKey)!.push(pago);
-  }
-  
-  // Actualizar numeración
-  for (const [dia, pagosDia] of pagosPorDia.entries()) {
-    const total = pagosDia.length;
-    for (let i = 0; i < total; i++) {
-      await tx.pago.update({
-        where: { id: pagosDia[i].id },
-        data: { numeroPagoDia: total - i } // Numeración inversa
-      });
-    }
-  }
-}
-
-// ========================================
-// FUNCIÓN: Calcular numeración de ventas por día
-// ========================================
-
-async function calcularNumeracionVentas(tx: any) {
-  const ventas = await tx.venta.findMany({
-    orderBy: [
-      { fechaVenta: 'desc' },
-      { timestampArchivo: 'desc' }
-    ]
-  });
-  
-  const ventasPorDia = new Map<string, typeof ventas>();
-  
-  for (const venta of ventas) {
-    const diaKey = venta.fechaVenta.toISOString().split('T')[0];
-    if (!ventasPorDia.has(diaKey)) {
-      ventasPorDia.set(diaKey, []);
-    }
-    ventasPorDia.get(diaKey)!.push(venta);
-  }
-  
-  for (const [dia, ventasDia] of ventasPorDia.entries()) {
-    const total = ventasDia.length;
-    for (let i = 0; i < total; i++) {
-      await tx.venta.update({
-        where: { id: ventasDia[i].id },
-        data: { numeroVentaDia: total - i }
-      });
-    }
   }
 }

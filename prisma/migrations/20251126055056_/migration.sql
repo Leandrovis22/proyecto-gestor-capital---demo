@@ -1,4 +1,21 @@
 -- CreateTable
+CREATE TABLE "sync_status" (
+    "id" TEXT NOT NULL DEFAULT 'google-apps-script',
+    "estado" TEXT NOT NULL,
+    "ultimaActualizacion" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "archivosActualizados" INTEGER NOT NULL DEFAULT 0,
+    "archivosOmitidos" INTEGER NOT NULL DEFAULT 0,
+    "totalArchivos" INTEGER NOT NULL DEFAULT 0,
+    "porcentaje" INTEGER NOT NULL DEFAULT 0,
+    "duracionSegundos" INTEGER NOT NULL DEFAULT 0,
+    "errores" INTEGER NOT NULL DEFAULT 0,
+    "exito" BOOLEAN NOT NULL DEFAULT false,
+    "mensaje" TEXT,
+
+    CONSTRAINT "sync_status_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "clientes" (
     "id" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,

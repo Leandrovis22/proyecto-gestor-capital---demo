@@ -1,3 +1,5 @@
+// src/app/api/sync/trigger/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/sessionManager';
 

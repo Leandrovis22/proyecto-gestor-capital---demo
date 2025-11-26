@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Dashboard from '@/components/Dashboard';
 import GastosManager from '@/components/GastosManager';
 import InversionesManager from '@/components/InversionesManager';
@@ -16,6 +16,9 @@ export default function Home() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [syncRunning, setSyncRunning] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     // Verificar si hay token de sesión guardado
@@ -23,15 +26,48 @@ export default function Home() {
     if (savedToken) {
       setSessionToken(savedToken);
       setIsAuthenticated(true);
-      // Eliminar llamada redundante a loadLastUpdate
+      // Cargar estado de sincronización al iniciar si hay token
+      fetchSyncStatus(savedToken);
     }
   }, []);
 
   const handleLogin = (token: string) => {
     setSessionToken(token);
     setIsAuthenticated(true);
-    // Eliminar referencia a loadLastUpdate
+    // Cargar estado de sincronización inmediatamente tras login
+    fetchSyncStatus(token);
   };
+
+  async function fetchSyncStatus(token: string) {
+    try {
+      const estadoResponse = await fetch('/api/sync/webhook', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': token || ''
+        }
+      });
+
+      const estadoData = await estadoResponse.json();
+      if (estadoData.success && estadoData.estado) {
+        setLastUpdate(estadoData.estado.ultimaActualizacion);
+        setSyncStatus(estadoData.estado.mensaje);
+        const running = estadoData.estado.estado === 'en_progreso';
+        setSyncRunning(running);
+        console.log('Estado de sincronización (inicial):', estadoData.estado);
+        if (!running && intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Si no hay estado registrado, limpiar indicadores
+        setSyncStatus(null);
+        setSyncRunning(false);
+      }
+    } catch (error) {
+      console.error('Error al obtener el estado de sincronización (inicio):', error);
+    }
+  }
 
   const handleLogout = () => {
     sessionStorage.removeItem('sessionToken');
@@ -39,9 +75,14 @@ export default function Home() {
     setIsAuthenticated(false);
   };
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />;
-  }
+  useEffect(() => {
+    return () => {
+      // Limpiar el intervalo al desmontar el componente
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('es-AR', {
@@ -56,6 +97,8 @@ export default function Home() {
   const handleSync = async (forzarTodo: boolean) => {
     try {
       setIsRefreshing(true);
+      // marcar que la sincronización está en curso (bloquea botones)
+      if (forzarTodo) setSyncRunning(true);
       const response = await fetch('/api/sync/trigger', {
         method: 'POST',
         headers: {
@@ -66,13 +109,48 @@ export default function Home() {
       });
 
       const data = await response.json();
-      
+
       if (data.exito) {
         alert(`✅ Sincronización completada\n\nArchivos actualizados: ${data.archivosActualizados}\nArchivos omitidos: ${data.archivosOmitidos}\nDuración: ${data.duracionSegundos}s`);
         // Refrescar la última actualización y forzar recarga de componentes
         setRefreshKey(prev => prev + 1);
       } else {
         alert('❌ Error en sincronización: ' + data.error);
+      }
+
+      if (forzarTodo) {
+        // Iniciar polling cada 30 segundos
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+        intervalRef.current = setInterval(async () => {
+          try {
+            const estadoResponse = await fetch('/api/sync/webhook', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Token': sessionToken || ''
+              }
+            });
+
+            const estadoData = await estadoResponse.json();
+            if (estadoData.success && estadoData.estado) {
+              setLastUpdate(estadoData.estado.ultimaActualizacion);
+              setSyncStatus(estadoData.estado.mensaje);
+              const running = estadoData.estado.estado === 'en_progreso';
+              setSyncRunning(running);
+              console.log('Estado de sincronización:', estadoData.estado);
+
+              // Si terminó, limpiar el intervalo
+              if (!running && intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+              }
+            }
+          } catch (error) {
+            console.error('Error al obtener el estado de sincronización:', error);
+          }
+        }, 30000);
       }
     } catch (error) {
       alert('❌ Error al sincronizar: ' + error);
@@ -84,6 +162,10 @@ export default function Home() {
   const handleUpdateFromDashboard = (fecha: string) => {
     setLastUpdate(fecha);
   };
+
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -105,7 +187,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2 justify-center">
               <button
                 onClick={() => handleSync(false)}
-                disabled={isRefreshing}
+                disabled={isRefreshing || syncRunning}
                 className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-semibold text-sm shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 {isRefreshing ? '🔄 Sincronizando...' : '🔄 Actualizar Ahora'}
@@ -117,7 +199,7 @@ export default function Home() {
                     handleSync(true);
                   }
                 }}
-                disabled={isRefreshing}
+                disabled={isRefreshing || syncRunning}
                 className="px-5 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-semibold text-sm shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 🔄 Actualizar Todo
@@ -134,6 +216,15 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* Sync Status Display */}
+      {syncStatus && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded-lg shadow-md">
+            <p className="text-sm font-medium">Estado de sincronización: {syncStatus}</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
