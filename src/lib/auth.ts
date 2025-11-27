@@ -2,6 +2,7 @@
 
 let isLoggingOut = false;
 let logoutTimeout: NodeJS.Timeout | null = null;
+let loginInProgress = false;
 
 /**
  * Helper para obtener el token de sesión del sessionStorage
@@ -20,9 +21,23 @@ export function getAuthHeaders(): HeadersInit {
 }
 
 /**
- * Wrapper para fetch que maneja automáticamente errores 401
+ * Marcar que un login está en progreso (evita logout por 401s transitorios)
  */
-export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export function setLoginInProgress(value: boolean) {
+  loginInProgress = value;
+}
+
+/**
+ * Wrapper para fetch que maneja automáticamente errores 401
+ * @param url - URL del endpoint
+ * @param options - Opciones de fetch
+ * @param silentFail - Si es true, no dispara logout en 401 (útil para pollers)
+ */
+export async function authFetch(
+  url: string, 
+  options: RequestInit = {}, 
+  silentFail: boolean = false
+): Promise<Response> {
   const headers = {
     ...options.headers,
     ...getAuthHeaders()
@@ -31,7 +46,8 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   const response = await fetch(url, { ...options, headers });
 
   // Si el token es inválido, cerrar sesión UNA SOLA VEZ
-  if (response.status === 401 && !isLoggingOut) {
+  // PERO: no cerrar sesión si estamos en proceso de login o si es silentFail
+  if (response.status === 401 && !isLoggingOut && !loginInProgress && !silentFail) {
     isLoggingOut = true;
     sessionStorage.removeItem('sessionToken');
     
@@ -49,7 +65,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
       }
       isLoggingOut = false;
       logoutTimeout = null;
-    }, 200);
+    }, 300);
     
     throw new Error('Sesión expirada');
   }

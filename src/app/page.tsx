@@ -71,21 +71,38 @@ export default function Home() {
       console.log('Login ya en progreso, ignorando llamada duplicada');
       return;
     }
-    
+
     loginInProgressRef.current = true;
-    
+
+    // CRÍTICO: Marcar en auth.ts que estamos en proceso de login
+    // Esto evita que 401s transitorios cierren la sesión
+    import('@/lib/auth').then(({ setLoginInProgress }) => {
+      setLoginInProgress(true);
+    });
+
     // Token ya está guardado en sessionStorage por LoginForm
-    // Simplemente actualizar el estado
     setSessionToken(token);
     setIsAuthenticated(true);
-    
-    // Cargar estado de sincronización después de un momento
-    setTimeout(() => {
-      fetchSyncStatus(token);
-      loginInProgressRef.current = false;
-    }, 200);
-    
+
     addToast({ type: 'success', message: '✅ Sesión iniciada correctamente' });
+
+    // Esperar un poco más antes de hacer peticiones
+    setTimeout(() => {
+      const tokenVerificado = sessionStorage.getItem('sessionToken');
+      if (tokenVerificado === token) {
+        fetchSyncStatus(token).catch(err => {
+          console.log('Error cargando sync status (no crítico):', err);
+        });
+      }
+
+      // Desmarcar flag de login después de 1 segundo completo
+      setTimeout(() => {
+        import('@/lib/auth').then(({ setLoginInProgress }) => {
+          setLoginInProgress(false);
+        });
+        loginInProgressRef.current = false;
+      }, 1000);
+    }, 400);
   };
 
   const handleUpdateFromDashboard = (fecha: string) => {
@@ -94,14 +111,24 @@ export default function Home() {
   };
 
   async function fetchSyncStatus(token: string) {
+    if (!token) return;
     try {
+      // Usar silentFail=true porque esto se llama durante login y polling
       const estadoResponse = await authFetch('/api/sync/webhook', {
-        method: 'GET'
-      });
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': token
+        }
+      }, true);
+
+      if (!estadoResponse.ok) {
+        console.log('No se pudo obtener estado de sincronización');
+        return;
+      }
 
       const estadoData = await estadoResponse.json();
       if (estadoData.success && estadoData.estado) {
-        // Actualizar lastUpdate sólo si el valor entrante es más reciente que el actual
         try {
           const incoming = new Date(estadoData.estado.ultimaActualizacion).getTime();
           const stored = sessionStorage.getItem('lastUpdate') || lastUpdate || null;
@@ -111,26 +138,22 @@ export default function Home() {
             sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
           }
         } catch (e) {
-          // Si hay problema al parsear fechas, usar el valor entrante solo si no existe uno previo
           if (!sessionStorage.getItem('lastUpdate') && !lastUpdate) {
             setLastUpdate(estadoData.estado.ultimaActualizacion);
             sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
           }
         }
         setSyncStatus(estadoData.estado.mensaje);
-        // Si el estado indica finalizado, almacenar un resumen para mostrar en mobile
         if (estadoData.estado.estado === 'completado') {
           setLastSyncSummary(`✅ Sincronización completada: ${estadoData.estado.archivosActualizados || 0} archivos actualizados`);
         }
         const running = estadoData.estado.estado === 'en_progreso';
         setSyncRunning(running);
-        console.log('Estado de sincronización (inicial):', estadoData.estado);
         if (!running && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
       } else {
-        // Si no hay estado registrado, limpiar indicadores
         setSyncStatus(null);
         setSyncRunning(false);
         setLastSyncSummary(null);
@@ -205,7 +228,7 @@ export default function Home() {
           }
           intervalRef.current = setInterval(async () => {
             try {
-              const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' });
+              const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' }, true);
               const estadoData = await estadoResponse.json();
               if (estadoData.success && estadoData.estado) {
                 setSyncStatus(estadoData.estado.mensaje);
@@ -253,9 +276,9 @@ export default function Home() {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
         }
-        intervalRef.current = setInterval(async () => {
+          intervalRef.current = setInterval(async () => {
           try {
-            const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' });
+            const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' }, true);
 
             const estadoData = await estadoResponse.json();
             if (estadoData.success && estadoData.estado) {
