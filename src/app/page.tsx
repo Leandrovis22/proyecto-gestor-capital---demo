@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useRef } from 'react';
 import Dashboard from '@/components/Dashboard';
@@ -8,6 +8,7 @@ import PagosView from '@/components/PagosView';
 import VentasView from '@/components/VentasView';
 import DeudoresView from '@/components/DeudoresView';
 import LoginForm from '@/components/LoginForm';
+import ToastContainer from '@/components/ToastContainer';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'gastos' | 'inversiones' | 'pagos' | 'ventas' | 'deudores'>('dashboard');
@@ -19,6 +20,7 @@ export default function Home() {
   const [syncRunning, setSyncRunning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; title?: string; message: string; type?: 'info' | 'success' | 'error' | 'warning' }>>([]);
 
   useEffect(() => {
     // Verificar si hay token de sesión guardado
@@ -101,6 +103,15 @@ export default function Home() {
     setIsAuthenticated(false);
   };
 
+  const addToast = (toast: { title?: string; message: string; type?: 'info' | 'success' | 'error' | 'warning' }) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setToasts((t) => [...t, { id, ...toast }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((t) => t.filter(x => x.id !== id));
+  };
+
   useEffect(() => {
     return () => {
       // Limpiar el intervalo al desmontar el componente
@@ -137,11 +148,68 @@ export default function Home() {
       const data = await response.json();
 
       if (data.exito) {
-        alert(`✅ Sincronización completada\n\nArchivos actualizados: ${data.archivosActualizados}\nArchivos omitidos: ${data.archivosOmitidos}\nDuración: ${data.duracionSegundos}s`);
-        // Refrescar la última actualización y forzar recarga de componentes
-        setRefreshKey(prev => prev + 1);
+        // Si el resultado indica que ya completó, mostrar resumen
+        if (data.estado === 'completado' || data.mensaje?.toLowerCase().includes('completada')) {
+          addToast({ type: 'success', message: `✅ Sincronización completada\nArchivos actualizados: ${data.archivosActualizados || 0}\nArchivos omitidos: ${data.archivosOmitidos || 0}\nDuración: ${data.duracionSegundos || 'n/a'}s` });
+          setRefreshKey(prev => prev + 1);
+        } else {
+          // La sincronización quedó en progreso (procesamiento por lotes). No mostrar alerta de completado.
+          setSyncRunning(true);
+          // Informar que se inició y se monitoreará
+          addToast({ type: 'info', message: '🔔 Sincronización iniciada y en progreso. Te avisará cuando termine.' });
+
+          // Iniciar polling (si no existe) para detectar cuando el webhook reporte completado
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+          }
+          intervalRef.current = setInterval(async () => {
+            try {
+              const estadoResponse = await fetch('/api/sync/webhook', {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Session-Token': sessionToken || ''
+                }
+              });
+              const estadoData = await estadoResponse.json();
+              if (estadoData.success && estadoData.estado) {
+                setSyncStatus(estadoData.estado.mensaje);
+                const runningNow = estadoData.estado.estado === 'en_progreso';
+                setSyncRunning(runningNow);
+                // Actualizar lastUpdate si viene
+                if (estadoData.estado.ultimaActualizacion) {
+                  try {
+                    const incoming = new Date(estadoData.estado.ultimaActualizacion).getTime();
+                    const stored = sessionStorage.getItem('lastUpdate') || lastUpdate || null;
+                    const current = stored ? new Date(stored).getTime() : 0;
+                    if (incoming > current) {
+                      setLastUpdate(estadoData.estado.ultimaActualizacion);
+                      sessionStorage.setItem('lastUpdate', estadoData.estado.ultimaActualizacion);
+                    }
+                  } catch (e) {
+                    // ignore parse errors
+                  }
+                }
+                if (!runningNow) {
+                  // Completó: mostrar toast final con datos del webhook
+                  const s = estadoData.estado;
+                  addToast({ type: 'success', message: `✅ Sincronización completada\nArchivos actualizados: ${s.archivosActualizados || 0}\nArchivos omitidos: ${s.archivosOmitidos || 0}\nDuración: ${s.duracionSegundos || 'n/a'}s` });
+                  setRefreshKey(prev => prev + 1);
+                  if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                  }
+                  setSyncRunning(false);
+                }
+              }
+            } catch (err) {
+              console.error('Error polling sync status:', err);
+              addToast({ type: 'error', message: 'Error consultando estado de sincronización.' });
+            }
+          }, 15000);
+        }
       } else {
-        alert('❌ Error en sincronización: ' + data.error);
+        addToast({ type: 'error', message: `❌ Error en sincronización: ${data.error || 'Error desconocido'}` });
       }
 
       if (forzarTodo) {
@@ -193,7 +261,7 @@ export default function Home() {
         }, 30000);
       }
     } catch (error) {
-      alert('❌ Error al sincronizar: ' + error);
+      addToast({ type: 'error', message: `❌ Error al sincronizar: ${error}` });
     } finally {
       setIsRefreshing(false);
     }
@@ -216,6 +284,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -225,9 +294,14 @@ export default function Home() {
                 Gestor Capital Julieta Joyas Web 💎
               </h1>
               {lastUpdate && (
-                <p className="text-md text-gray-500 mt-2">
-                  ⏱️ Última actualización: {formatDateTime(lastUpdate)}
-                </p>
+                <>
+                  <p className="text-md text-gray-500 mt-2">
+                    ⏱️ Última actualización: {formatDateTime(lastUpdate)}
+                  </p>
+                  {syncStatus && (
+                    <p className="text-sm text-gray-600 mt-1">{syncStatus}</p>
+                  )}
+                </>
               )}
             </div>
             
@@ -264,14 +338,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Sync Status Display */}
-      {syncStatus && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded-lg shadow-md">
-            <p className="text-sm font-medium">Estado de sincronización: {syncStatus}</p>
-          </div>
-        </div>
-      )}
+      {/* syncStatus is now shown in the header next to Última actualización */}
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">

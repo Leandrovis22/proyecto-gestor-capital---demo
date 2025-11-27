@@ -15,80 +15,55 @@ export async function GET(request: NextRequest) {
     const FECHA_INICIO_CAPITAL_PAGOS = new Date('2025-11-04');
     const FECHA_INICIO_CAPITAL_VENTAS = new Date('2025-11-04');
     
-    // Calcular ÚLTIMA SEMANA COMPLETA (lunes a domingo)
+    // Calcular ÚLTIMA SEMANA COMPLETA (lunes a domingo) y SEMANA ACTUAL (lunes a domingo)
     const hoy = new Date();
     const diaSemana = hoy.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
-    
-    // Calcular cuántos días retroceder para llegar al LUNES PASADO
-    // Si hoy es lunes (1), retroceder 7 días para el lunes anterior
-    // Si hoy es martes (2), retroceder 8 días
-    // Si hoy es domingo (0), retroceder 7 días
+
+    // Calcular cuántos días retroceder para llegar al LUNES PASADO (última semana completa)
     let diasHastaLunesPasado;
     if (diaSemana === 0) {
-      // Domingo: retroceder 7 días al lunes anterior
       diasHastaLunesPasado = 7;
     } else {
-      // Cualquier otro día: retroceder a lunes de semana pasada
       diasHastaLunesPasado = diaSemana + 6;
     }
-    
-    // Calcular fecha del lunes pasado en zona horaria local
+
     const fechaLunesPasado = new Date(hoy);
     fechaLunesPasado.setDate(hoy.getDate() - diasHastaLunesPasado);
-    
-    // Calcular fecha del domingo pasado (6 días después del lunes pasado)
     const fechaDomingoPasado = new Date(fechaLunesPasado);
     fechaDomingoPasado.setDate(fechaLunesPasado.getDate() + 6);
-    
-    // Crear fechas UTC con las fechas locales calculadas
+
     const inicioSemana = new Date(Date.UTC(
       fechaLunesPasado.getFullYear(),
       fechaLunesPasado.getMonth(),
       fechaLunesPasado.getDate(),
       0, 0, 0, 0
     ));
-    
     const finSemana = new Date(Date.UTC(
       fechaDomingoPasado.getFullYear(),
       fechaDomingoPasado.getMonth(),
       fechaDomingoPasado.getDate(),
       23, 59, 59, 999
     ));
-    
-    /* console.log('📅 Cálculo semanal (ÚLTIMA SEMANA COMPLETA):', {
-      hoy: hoy.toISOString(),
-      diaSemana,
-      diasHastaLunesPasado,
-      inicioSemana: inicioSemana.toISOString(),
-      finSemana: finSemana.toISOString(),
-      rangoLegible: `${fechaLunesPasado.toLocaleDateString()} al ${fechaDomingoPasado.toLocaleDateString()}`
-    }); */
-    
-    // Debug: Ver todos los gastos confirmados
-    const todosGastos = await prisma.gasto.findMany({
-      where: { confirmado: true },
-      select: { id: true, descripcion: true, monto: true, fecha: true, confirmado: true }
-    });
-    /* //console.log('🔍 Todos los gastos confirmados:', todosGastos.map((g: any) => ({
-      ...g,
-      fecha: g.fecha.toISOString()
-    }))); */
-    
-    // Debug: Ver qué gastos cumplen el filtro semanal
-    const gastosSemanalesDebug = await prisma.gasto.findMany({
-      where: {
-        confirmado: true,
-        fecha: { 
-          gte: inicioSemana,
-          lte: finSemana
-        }
-      },
-      select: { id: true, descripcion: true, monto: true, fecha: true }
-    });
-   /*  console.log('📊 Gastos en última semana completa:', gastosSemanalesDebug.map((g: any) => ({
-      ...g,
-      fecha: g.fecha.toISOString()
-    }))); */
+
+    // Semana actual (lunes a domingo)
+    const diasHastaLunesActual = diaSemana === 0 ? 6 : diaSemana - 1;
+    const fechaLunesActual = new Date(hoy);
+    fechaLunesActual.setDate(hoy.getDate() - diasHastaLunesActual);
+    const fechaDomingoActual = new Date(fechaLunesActual);
+    fechaDomingoActual.setDate(fechaLunesActual.getDate() + 6);
+
+    const inicioSemanaActual = new Date(Date.UTC(
+      fechaLunesActual.getFullYear(),
+      fechaLunesActual.getMonth(),
+      fechaLunesActual.getDate(),
+      0, 0, 0, 0
+    ));
+    const finSemanaActual = new Date(Date.UTC(
+      fechaDomingoActual.getFullYear(),
+      fechaDomingoActual.getMonth(),
+      fechaDomingoActual.getDate(),
+      23, 59, 59, 999
+    ));
     
     // Filtros de fecha personalizados (si se proporcionan)
     const wherePersonalizado = fechaInicio && fechaFin ? {
@@ -96,24 +71,23 @@ export async function GET(request: NextRequest) {
       lte: new Date(fechaFin)
     } : undefined;
     
-    // Filtro para última semana completa
-    const whereSemana = {
-      gte: inicioSemana,
-      lte: finSemana
-    };
-    
-    // Calcular métricas en paralelo
+    // Calcular métricas en paralelo (totales, listados y agregados por semana)
     const [
       totalInversiones,
       totalPagos,
       totalVentas,
       totalGastos,
       totalSaldoDeudores,
-      // Métricas de última semana completa
+      // agregados semana pasada
       inversionesSemana,
       pagosSemana,
       ventasSemana,
       gastosSemana,
+      // agregados semana actual
+      inversionesSemanaActual,
+      pagosSemanaActual,
+      ventasSemanaActual,
+      gastosSemanaActual,
       ultimasPagos,
       ultimasVentas,
       clientesDeudores
@@ -148,42 +122,26 @@ export async function GET(request: NextRequest) {
           ...(wherePersonalizado ? { fecha: wherePersonalizado } : {})
         }
       }),
-      
       // Total Saldo Deudores
-      prisma.cliente.aggregate({
-        _sum: { saldoAPagar: true },
-        where: { saldoAPagar: { gt: 0 } }
-      }),
-      
+      prisma.cliente.aggregate({ _sum: { saldoAPagar: true }, where: { saldoAPagar: { gt: 0 } } }),
+
       // Inversiones última semana completa
-      prisma.inversion.aggregate({
-        _sum: { monto: true },
-        where: { fecha: whereSemana }
-      }),
-      
-      // Pagos última semana completa
-      prisma.pago.aggregate({
-        _sum: { monto: true },
-        where: { fechaPago: whereSemana }
-      }),
-      
-      // Ventas última semana completa
-      prisma.venta.aggregate({
-        _sum: { totalVenta: true },
-        where: { fechaVenta: whereSemana }
-      }),
-      
-      // Gastos última semana completa
-      prisma.gasto.aggregate({
-        _sum: { monto: true },
-        where: {
-          confirmado: true,
-          fecha: whereSemana
-        }
-      }).then((result: any) => {
-        //console.log('💰 Gastos última semana completa:', result);
-        return result;
-      }),
+      prisma.inversion.aggregate({ _sum: { monto: true }, where: { fecha: { gte: inicioSemana, lte: finSemana } } }),
+        // Pagos última semana completa
+        prisma.pago.aggregate({ _sum: { monto: true }, where: { fechaPago: { gte: inicioSemana, lte: finSemana } } }),
+        // Ventas última semana completa
+        prisma.venta.aggregate({ _sum: { totalVenta: true }, where: { fechaVenta: { gte: inicioSemana, lte: finSemana } } }),
+        // Gastos última semana completa
+        prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemana, lte: finSemana } } }),
+
+        // Inversiones semana actual
+        prisma.inversion.aggregate({ _sum: { monto: true }, where: { fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+        // Pagos semana actual
+        prisma.pago.aggregate({ _sum: { monto: true }, where: { fechaPago: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+        // Ventas semana actual
+        prisma.venta.aggregate({ _sum: { totalVenta: true }, where: { fechaVenta: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+        // Gastos semana actual
+        prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
       
       // Últimos 10 pagos
       prisma.pago.findMany({
@@ -220,65 +178,16 @@ export async function GET(request: NextRequest) {
     const gastos = Number(totalGastos._sum.monto || 0);
     const capital = inversiones + pagos - ventas - gastos;
     
-    // Calcular capital de última semana completa
+    // Valores semanales (por categoría)
     const inversionesSem = Number(inversionesSemana._sum.monto || 0);
     const pagosSem = Number(pagosSemana._sum.monto || 0);
     const ventasSem = Number(ventasSemana._sum.totalVenta || 0);
     const gastosSem = Number(gastosSemana._sum.monto || 0);
-    const capitalSemana = inversionesSem + pagosSem - ventasSem - gastosSem;
-    
-    // Calcular fechas de la semana actual (lunes a domingo)
-    const diasHastaLunesActual = diaSemana === 0 ? 6 : diaSemana - 1;
-    const fechaLunesActual = new Date(hoy);
-    fechaLunesActual.setDate(hoy.getDate() - diasHastaLunesActual);
-
-    const fechaDomingoActual = new Date(fechaLunesActual);
-    fechaDomingoActual.setDate(fechaLunesActual.getDate() + 6);
-
-    const inicioSemanaActual = new Date(Date.UTC(
-      fechaLunesActual.getFullYear(),
-      fechaLunesActual.getMonth(),
-      fechaLunesActual.getDate(),
-      0, 0, 0, 0
-    ));
-
-    const finSemanaActual = new Date(Date.UTC(
-      fechaDomingoActual.getFullYear(),
-      fechaDomingoActual.getMonth(),
-      fechaDomingoActual.getDate(),
-      23, 59, 59, 999
-    ));
-
-    // Calcular métricas de la semana actual
-    const [
-      inversionesSemanaActual,
-      pagosSemanaActual,
-      ventasSemanaActual,
-      gastosSemanaActual
-    ] = await Promise.all([
-      prisma.inversion.aggregate({
-        _sum: { monto: true },
-        where: { fecha: { gte: inicioSemanaActual, lte: finSemanaActual } }
-      }),
-      prisma.pago.aggregate({
-        _sum: { monto: true },
-        where: { fechaPago: { gte: inicioSemanaActual, lte: finSemanaActual } }
-      }),
-      prisma.venta.aggregate({
-        _sum: { totalVenta: true },
-        where: { fechaVenta: { gte: inicioSemanaActual, lte: finSemanaActual } }
-      }),
-      prisma.gasto.aggregate({
-        _sum: { monto: true },
-        where: { confirmado: true, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } }
-      })
-    ]);
 
     const inversionesAct = Number(inversionesSemanaActual._sum.monto || 0);
     const pagosAct = Number(pagosSemanaActual._sum.monto || 0);
     const ventasAct = Number(ventasSemanaActual._sum.totalVenta || 0);
     const gastosAct = Number(gastosSemanaActual._sum.monto || 0);
-    const capitalSemanaActual = inversionesAct + pagosAct - ventasAct - gastosAct;
 
     // Obtener estado de sincronización (si existe) para usar su marca de tiempo
     const syncEstado = await prisma.syncStatus.findUnique({ where: { id: 'google-apps-script' } });
@@ -291,28 +200,19 @@ export async function GET(request: NextRequest) {
         ventas,
         gastos
       },
-      capitalSemana: {
-        total: capitalSemana,
+      semanaPasada: {
         inversiones: inversionesSem,
         pagos: pagosSem,
         ventas: ventasSem,
         gastos: gastosSem,
-        // Información adicional sobre el período
-        rangoFechas: {
-          inicio: inicioSemana,
-          fin: finSemana
-        }
+        rangoFechas: { inicio: inicioSemana, fin: finSemana }
       },
-      capitalSemanaActual: {
-        total: capitalSemanaActual,
+      semanaActual: {
         inversiones: inversionesAct,
         pagos: pagosAct,
         ventas: ventasAct,
         gastos: gastosAct,
-        rangoFechas: {
-          inicio: inicioSemanaActual,
-          fin: finSemanaActual
-        }
+        rangoFechas: { inicio: inicioSemanaActual, fin: finSemanaActual }
       },
       saldoDeudores: Number(totalSaldoDeudores._sum.saldoAPagar || 0),
       ultimasPagos,
