@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
         fecha: new Date(body.fecha),
         descripcion: body.descripcion,
         monto: body.monto,
-        categoria: body.categoria
+        categoria: body.categoria,
+        confirmado: body.confirmado ?? true
       }
     });
     return NextResponse.json(inversion);

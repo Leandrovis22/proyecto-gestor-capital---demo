@@ -73,23 +73,24 @@ export default function DeudoresView({ refreshKey }: DeudoresViewProps) {
   return (
     <div className="space-y-8">
       {/* Estadísticas */}
-      <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl shadow-lg p-8 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wide mb-3">Total Deuda Pendiente</h3>
-            <p className="text-5xl font-bold text-orange-600">{formatMoney(totalDeuda.toString())}</p>
-            <p className="text-sm text-gray-600 mt-3 font-medium">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-orange-100 text-orange-700">
+      <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-200">
+        <div className="flex">
+          <div className='w-full'>
+            <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wide mb-2 flex justify-between items-center">
+              Total Deuda Pendiente <span className='text-2xl'>⚠️</span>
+            </h3>
+            <p className="text-2xl sm:text-3xl font-bold text-orange-600">{formatMoney(totalDeuda.toString())}</p>
+            <div className="mt-2">
+              <span className="inline-flex items-center px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs sm:text-sm font-semibold">
                 👥 {clientes.length} clientes con deuda
               </span>
-            </p>
+            </div>
           </div>
-          <div className="text-6xl">⚠️</div>
         </div>
       </div>
 
       {/* Lista de deudores */}
-      <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+      <div className="bg-white rounded-xl shadow-lg px-2 py-4 sm:p-6 hover:shadow-xl transition-shadow duration-200">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             📋 Clientes Deudores
@@ -99,37 +100,64 @@ export default function DeudoresView({ refreshKey }: DeudoresViewProps) {
           </span>
         </div>
         <div className="overflow-x-auto">
-          {clientes.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4">✅</div>
-              <p className="text-gray-500 text-lg font-medium">No hay clientes con deuda pendiente</p>
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Cliente</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Saldo a Pagar</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Última Modificación</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {clientes.map((cliente) => (
-                  <tr key={cliente.id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-colors duration-150">
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      {cliente.nombre}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-bold text-orange-600">
-                      {formatMoney(cliente.saldoAPagar)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatDate(cliente.ultimaModificacion)}
-                    </td>
+          {/* Desktop/tablet: tabla (oculta en mobile) */}
+          <div className="hidden md:block">
+            {clientes.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">✅</div>
+                <p className="text-gray-500 text-lg font-medium">No hay clientes con deuda pendiente</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Saldo a Pagar</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Última Modificación</th>
                   </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {clientes.map((cliente) => (
+                    <tr key={cliente.id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-colors duration-150">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        {cliente.nombre}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-bold text-orange-600">
+                        {formatMoney(cliente.saldoAPagar)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatDate(cliente.ultimaModificacion)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Mobile: lista compacta tipo carta */}
+          <div className="md:hidden">
+            {clientes.length === 0 ? (
+              <div className="text-center py-6">
+                <div className="text-5xl mb-3">✅</div>
+                <p className="text-gray-500 text-base font-medium">No hay clientes con deuda pendiente</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {clientes.map((cliente) => (
+                  <div key={cliente.id} className="flex flex-col bg-white border rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-gray-900">{cliente.nombre}</span>
+                        <span className="text-xs text-gray-500">Última: {formatDate(cliente.ultimaModificacion)}</span>
+                      </div>
+                      <div className="text-sm font-bold text-orange-600">{formatMoney(cliente.saldoAPagar)}</div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

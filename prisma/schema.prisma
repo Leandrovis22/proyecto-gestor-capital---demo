@@ -165,6 +165,7 @@ model Inversion {
   descripcion String   @map("concepto")
   monto       Decimal  @db.Decimal(10,2)
   categoria   String?
+  confirmado  Boolean  @default(true)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

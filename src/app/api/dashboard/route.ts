@@ -74,29 +74,46 @@ export async function GET(request: NextRequest) {
     // Calcular métricas en paralelo (totales, listados y agregados por semana)
     const [
       totalInversiones,
+      totalInversionesNoConfirmadas,
       totalPagos,
       totalVentas,
       totalGastos,
+      totalGastosNoConfirmadas,
       totalSaldoDeudores,
       // agregados semana pasada
       inversionesSemana,
+      inversionesSemanaNoConfirmadas,
       pagosSemana,
       ventasSemana,
       gastosSemana,
+      gastosSemanaNoConfirmadas,
       // agregados semana actual
       inversionesSemanaActual,
+      inversionesSemanaActualNoConfirmadas,
       pagosSemanaActual,
       ventasSemanaActual,
       gastosSemanaActual,
+      gastosSemanaActualNoConfirmadas,
       ultimasPagos,
       ultimasVentas,
       clientesDeudores
     ] = await Promise.all([
-      // Total Inversiones
-      prisma.inversion.aggregate({
-        _sum: { monto: true },
-        where: wherePersonalizado ? { fecha: wherePersonalizado } : undefined
-      }),
+        // Total Inversiones (solo confirmadas)
+        prisma.inversion.aggregate({
+          _sum: { monto: true },
+          where: {
+            confirmado: true,
+            ...(wherePersonalizado ? { fecha: wherePersonalizado } : {})
+          }
+        }),
+        // Total Inversiones NO confirmadas
+        prisma.inversion.aggregate({
+          _sum: { monto: true },
+          where: {
+            confirmado: false,
+            ...(wherePersonalizado ? { fecha: wherePersonalizado } : {})
+          }
+        }),
       
       // Total Pagos (>= 04/11/2025)
       prisma.pago.aggregate({
@@ -122,26 +139,40 @@ export async function GET(request: NextRequest) {
           ...(wherePersonalizado ? { fecha: wherePersonalizado } : {})
         }
       }),
+      // Total Gastos NO confirmados
+      prisma.gasto.aggregate({
+        _sum: { monto: true },
+        where: {
+          confirmado: false,
+          ...(wherePersonalizado ? { fecha: wherePersonalizado } : {})
+        }
+      }),
       // Total Saldo Deudores
       prisma.cliente.aggregate({ _sum: { saldoAPagar: true }, where: { saldoAPagar: { gt: 0 } } }),
 
-      // Inversiones última semana completa
-      prisma.inversion.aggregate({ _sum: { monto: true }, where: { fecha: { gte: inicioSemana, lte: finSemana } } }),
+        // Inversiones última semana completa (solo confirmadas)
+      prisma.inversion.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemana, lte: finSemana } } }),
+        // Inversiones última semana completa NO confirmadas
+        prisma.inversion.aggregate({ _sum: { monto: true }, where: { confirmado: false, fecha: { gte: inicioSemana, lte: finSemana } } }),
         // Pagos última semana completa
         prisma.pago.aggregate({ _sum: { monto: true }, where: { fechaPago: { gte: inicioSemana, lte: finSemana } } }),
         // Ventas última semana completa
         prisma.venta.aggregate({ _sum: { totalVenta: true }, where: { fechaVenta: { gte: inicioSemana, lte: finSemana } } }),
-        // Gastos última semana completa
+        // Gastos última semana completa (NO confirmadas y confirmadas separadas)
         prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemana, lte: finSemana } } }),
+        prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: false, fecha: { gte: inicioSemana, lte: finSemana } } }),
 
-        // Inversiones semana actual
-        prisma.inversion.aggregate({ _sum: { monto: true }, where: { fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+        // Inversiones semana actual (solo confirmadas)
+        prisma.inversion.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+          // Inversiones semana actual NO confirmadas
+          prisma.inversion.aggregate({ _sum: { monto: true }, where: { confirmado: false, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
         // Pagos semana actual
         prisma.pago.aggregate({ _sum: { monto: true }, where: { fechaPago: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
         // Ventas semana actual
         prisma.venta.aggregate({ _sum: { totalVenta: true }, where: { fechaVenta: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
-        // Gastos semana actual
+        // Gastos semana actual (confirmadas y no confirmadas)
         prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: true, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
+        prisma.gasto.aggregate({ _sum: { monto: true }, where: { confirmado: false, fecha: { gte: inicioSemanaActual, lte: finSemanaActual } } }),
       
       // Últimos 10 pagos
       prisma.pago.findMany({
@@ -173,21 +204,27 @@ export async function GET(request: NextRequest) {
     
     // Calcular capital total
     const inversiones = Number(totalInversiones._sum.monto || 0);
+    const inversionesNoConfirmadas = Number(totalInversionesNoConfirmadas._sum.monto || 0);
     const pagos = Number(totalPagos._sum.monto || 0);
     const ventas = Number(totalVentas._sum.totalVenta || 0);
     const gastos = Number(totalGastos._sum.monto || 0);
+    const gastosNoConfirmadas = Number(totalGastosNoConfirmadas._sum.monto || 0);
     const capital = inversiones + pagos - ventas - gastos;
     
     // Valores semanales (por categoría)
     const inversionesSem = Number(inversionesSemana._sum.monto || 0);
+    const inversionesSemNoConfirmadas = Number(inversionesSemanaNoConfirmadas._sum.monto || 0);
     const pagosSem = Number(pagosSemana._sum.monto || 0);
     const ventasSem = Number(ventasSemana._sum.totalVenta || 0);
     const gastosSem = Number(gastosSemana._sum.monto || 0);
+    const gastosSemNoConfirmadas = Number(gastosSemanaNoConfirmadas._sum.monto || 0);
 
     const inversionesAct = Number(inversionesSemanaActual._sum.monto || 0);
+    const inversionesActNoConfirmadas = Number(inversionesSemanaActualNoConfirmadas._sum.monto || 0);
     const pagosAct = Number(pagosSemanaActual._sum.monto || 0);
     const ventasAct = Number(ventasSemanaActual._sum.totalVenta || 0);
     const gastosAct = Number(gastosSemanaActual._sum.monto || 0);
+    const gastosActNoConfirmadas = Number(gastosSemanaActualNoConfirmadas._sum.monto || 0);
 
     // Obtener estado de sincronización (si existe) para usar su marca de tiempo
     const syncEstado = await prisma.syncStatus.findUnique({ where: { id: 'google-apps-script' } });
@@ -196,12 +233,16 @@ export async function GET(request: NextRequest) {
       capital: {
         total: capital,
         inversiones,
+        inversionesNoConfirmadas,
+        gastosNoConfirmadas,
         pagos,
         ventas,
         gastos
       },
       semanaPasada: {
         inversiones: inversionesSem,
+        inversionesNoConfirmadas: inversionesSemNoConfirmadas,
+        gastosNoConfirmadas: gastosSemNoConfirmadas,
         pagos: pagosSem,
         ventas: ventasSem,
         gastos: gastosSem,
@@ -209,6 +250,8 @@ export async function GET(request: NextRequest) {
       },
       semanaActual: {
         inversiones: inversionesAct,
+        inversionesNoConfirmadas: inversionesActNoConfirmadas,
+        gastosNoConfirmadas: gastosActNoConfirmadas,
         pagos: pagosAct,
         ventas: ventasAct,
         gastos: gastosAct,

@@ -145,26 +145,25 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
   return (
     <div className="space-y-8">
       {/* Estadísticas */}
-      <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl shadow-lg p-8 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wide mb-3">Total Ventas Realizadas</h3>
-            <p className="text-5xl font-bold text-purple-600">{formatMoney(totalVentas.toString())}</p>
-            <div className="mt-4 flex items-center gap-4">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold">
-                📊 {ventasSemana.length} ventas esta semana
-              </span>
-              <span className="text-lg font-bold text-purple-700">
-                {formatMoney(totalVentasSemana.toString())}
-              </span>
+      
+        <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-200">
+          <div className="flex">
+            <div className='w-full'>
+              <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wide mb-2 flex justify-between items-center">
+                Total Ventas Realizadas <span className='text-2xl'>🛒</span>
+              </h3>
+              <p className="text-2xl sm:text-3xl font-bold text-purple-600">{formatMoney(totalVentas.toString())}</p>
+              <div className="mt-2">
+                <span className="inline-flex items-center px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs sm:text-sm font-semibold">
+                  📊 {ventasSemana.length} ventas esta semana = {formatMoney(totalVentasSemana.toString())}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="text-6xl">🛒</div>
         </div>
-      </div>
 
       {/* Lista de ventas */}
-      <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+      <div className="bg-white rounded-xl shadow-lg px-2 py-4 sm:p-6 hover:shadow-xl transition-shadow duration-200">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             📋 Registro de Ventas
@@ -173,7 +172,8 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
             Total: {ventasRegistroSortedDesc.length} ventas
           </span>
         </div>
-        <div className="overflow-x-auto">
+        {/* Desktop/tablet: tabla (oculta en mobile) */}
+        <div className="hidden md:block overflow-x-auto">
           {ventasRegistroSortedDesc.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">📭</div>
@@ -218,6 +218,47 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
                 })}
               </tbody>
             </table>
+          )}
+        </div>
+
+        {/* Mobile: lista compacta tipo carta con separadores por fecha */}
+        <div className="md:hidden">
+          {ventasRegistroSortedDesc.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="text-5xl mb-3">📭</div>
+              <p className="text-gray-500 text-base font-medium">No hay ventas registradas</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {ventasRegistroSortedDesc.map((venta, index) => {
+                const fechaActual = formatDate(venta.fechaVenta);
+                const fechaAnterior = index > 0 ? formatDate(ventasRegistroSortedDesc[index - 1].fechaVenta) : null;
+                const numeroDia = numeracionPorVenta.get(venta.id) ?? venta.numeroVentaDia ?? (index + 1);
+
+                return (
+                  <Fragment key={venta.id}>
+                    {index > 0 && fechaActual !== fechaAnterior && (
+                      <div className="w-full">
+                        <div className="border-t-4 border-blue-800 my-1"></div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col bg-white border rounded-lg p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">#{numeroDia}</span>
+                          <span className="text-sm font-semibold text-gray-800">{clientes.get(venta.clienteId)?.nombre || 'Desconocido'}</span>
+                        </div>
+                        <div className="text-sm font-bold text-purple-600">{formatMoney(venta.totalVenta)}</div>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
+                        <span>{fechaActual}</span>
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </div>
           )}
         </div>
         {/* Botón para cargar más ventas (2 semanas adicionales) */}

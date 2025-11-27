@@ -524,18 +524,16 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       </div>
 
       {/* Lista de pagos */}
-      <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            📋 Registro de Pagos
-          </h3>
-          <span className="text-sm text-gray-500 font-medium">
-            Total: {pagosRegistroSortedDesc.length} pagos
-          </span>
+      <div className="bg-white rounded-xl shadow-lg px-2 py-4 sm:p-6 hover:shadow-xl transition-shadow duration-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg sm:text-2xl font-bold text-gray-900 flex items-center gap-2">📋 Registro de Pagos</h3>
+          <span className="text-xs sm:text-sm text-gray-500 font-medium">Total: {pagosRegistroSortedDesc.length} pagos</span>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Desktop/tablet: tabla responsive (oculta en mobile) */}
+        <div className="hidden md:block overflow-x-auto">
           {pagosRegistroSortedDesc.length === 0 ? (
-            <div className="text-center py-16">
+            <div className="text-center py-8">
               <div className="text-6xl mb-4">📭</div>
               <p className="text-gray-500 text-lg font-medium">No hay pagos registrados</p>
             </div>
@@ -543,11 +541,11 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Cliente</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Monto</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Cliente</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Monto</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tipo</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -561,22 +559,18 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                     <Fragment key={pago.id}>
                       {cambioFecha && index > 0 && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-2">
+                          <td colSpan={5} className="px-4 py-2">
                             <div className="border-t-4 border-blue-800"></div>
                           </td>
                         </tr>
                       )}
                       <tr className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-colors duration-150 border-b border-gray-100">
-                        <td className="px-6 py-4 text-sm text-gray-500 font-medium">#{numeroDia}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-semibold">{fechaActual}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {clientes.get(pago.clienteId)?.nombre || 'Desconocido'}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {pago.tipoPago}
-                          </span>
+                        <td className="px-4 py-3 text-sm text-gray-500 font-medium">#{numeroDia}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 font-semibold">{fechaActual}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{pago.tipoPago}</span>
                         </td>
                       </tr>
                     </Fragment>
@@ -586,12 +580,55 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
             </table>
           )}
         </div>
+
+        {/* Mobile: lista compacta para evitar scroll horizontal */}
+        <div className="md:hidden">
+          {pagosRegistroSortedDesc.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="text-5xl mb-3">📭</div>
+              <p className="text-gray-500 text-base font-medium">No hay pagos registrados</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pagosRegistroSortedDesc.map((pago, index) => {
+                  const fechaActual = formatDate(pago.fechaPago);
+                  const fechaAnterior = index > 0 ? formatDate(pagosRegistroSortedDesc[index - 1].fechaPago) : null;
+                  const numeroDia = numeracionPorPago.get(pago.id) ?? pago.numeroPagoDia ?? (index + 1);
+
+                  return (
+                    <Fragment key={pago.id}>
+                      {index > 0 && fechaActual !== fechaAnterior && (
+                        <div className="w-full">
+                          <div className="border-t-4 border-blue-800 my-1"></div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col bg-white border rounded-lg p-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">#{numeroDia}</span>
+                            <span className="text-sm font-semibold text-gray-800">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</span>
+                          </div>
+                          <div className="text-sm font-bold text-green-600">{formatMoney(pago.monto)}</div>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
+                          <span>{fechaActual}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{pago.tipoPago}</span>
+                        </div>
+                      </div>
+                    </Fragment>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
         {/* Botón para cargar más pagos (2 semanas adicionales) */}
         <div className="mt-4 flex justify-center">
           <button
             onClick={() => setSemanasMostrar(s => s + 2)}
             disabled={!hayPagosMasAntiguos}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${hayPagosMasAntiguos ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${hayPagosMasAntiguos ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
           >
             Cargar más pagos (2 semanas)
           </button>

@@ -6,6 +6,7 @@ const inversionSchema = z.object({
   descripcion: z.string().min(1),
   monto: z.number().positive(),
   fecha: z.string().transform((str) => new Date(str)),
+  confirmado: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -23,6 +24,7 @@ export async function PUT(
         fecha: validated.fecha,
         descripcion: validated.descripcion,
         monto: validated.monto,
+        confirmado: validated.confirmado ?? true,
       },
     });
 
