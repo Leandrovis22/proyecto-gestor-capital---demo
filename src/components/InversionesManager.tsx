@@ -37,7 +37,12 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   const [confirmado, setConfirmado] = useState(true);
 
   useEffect(() => {
-    fetchInversiones();
+    const timer = setTimeout(() => {
+      fetchInversiones();
+    }, 100);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   const fetchInversiones = async () => {

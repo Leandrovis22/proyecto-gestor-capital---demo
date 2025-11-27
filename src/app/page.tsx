@@ -24,6 +24,9 @@ export default function Home() {
   const [lastSyncSummary, setLastSyncSummary] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: string; title?: string; message: string; type?: 'info' | 'success' | 'error' | 'warning' }>>([]);
+  // Flag para prevenir race conditions durante login
+  const [isInitializing, setIsInitializing] = useState(true);
+  const loginInProgressRef = useRef(false);
 
   useEffect(() => {
     // Verificar si hay token de sesión guardado
@@ -40,6 +43,9 @@ export default function Home() {
       // Cargar estado de sincronización al iniciar si hay token
       fetchSyncStatus(savedToken);
     }
+  
+    // Marcar como inicializado después de un momento
+    setTimeout(() => setIsInitializing(false), 150);
   }, []);
 
   // Escuchar evento global cuando la sesión expire (emitted desde authFetch)
@@ -56,35 +62,26 @@ export default function Home() {
   }, []);
 
   const handleLogin = (token: string) => {
-    // Validar el token antes de marcar como autenticado para evitar
-    // montar componentes que hagan peticiones y provoquen 401.
-    (async () => {
-      try {
-        // Asegurar sessionStorage (LoginForm ya lo guarda, pero reafirmar)
-        sessionStorage.setItem('sessionToken', token);
-        // Intentar una petición ligera que requiere auth (dashboard)
-        const res = await fetch('/api/dashboard', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }
-        });
-
-        if (res.ok) {
-          setSessionToken(token);
-          setIsAuthenticated(true);
-          // Cargar estado de sincronización inmediatamente tras login
-          fetchSyncStatus(token);
-          addToast({ type: 'success', message: '✅ Sesión iniciada correctamente' });
-        } else {
-          // Token inválido: limpiar y mostrar error
-          sessionStorage.removeItem('sessionToken');
-          addToast({ type: 'error', message: '❌ No se pudo validar la sesión. Intenta de nuevo.' });
-        }
-      } catch (err) {
-        console.error('Error validando token tras login:', err);
-        sessionStorage.removeItem('sessionToken');
-        addToast({ type: 'error', message: '❌ Error verificando sesión. Intenta de nuevo.' });
-      }
-    })();
+    // Prevenir llamadas concurrentes
+    if (loginInProgressRef.current) {
+      console.log('Login ya en progreso, ignorando llamada duplicada');
+      return;
+    }
+    
+    loginInProgressRef.current = true;
+    
+    // Token ya está guardado en sessionStorage por LoginForm
+    // Simplemente actualizar el estado
+    setSessionToken(token);
+    setIsAuthenticated(true);
+    
+    // Cargar estado de sincronización después de un momento
+    setTimeout(() => {
+      fetchSyncStatus(token);
+      loginInProgressRef.current = false;
+    }, 200);
+    
+    addToast({ type: 'success', message: '✅ Sesión iniciada correctamente' });
   };
 
   const handleUpdateFromDashboard = (fecha: string) => {
@@ -309,6 +306,18 @@ export default function Home() {
 
   if (!isAuthenticated) {
     return <LoginForm onLogin={handleLogin} />;
+  }
+
+  // Prevenir renderizado hasta que la inicialización esté completa
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -19,7 +19,11 @@ export default function DeudoresView({ refreshKey }: DeudoresViewProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchClientes();
+    const timer = setTimeout(() => {
+      fetchClientes();
+    }, 100);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 

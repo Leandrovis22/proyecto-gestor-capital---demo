@@ -36,7 +36,12 @@ interface Gasto {
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
-      fetchGastos();
+      const timer = setTimeout(() => {
+        fetchGastos();
+      }, 100);
+
+      return () => clearTimeout(timer);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refreshKey]);
 
     const fetchGastos = async () => {

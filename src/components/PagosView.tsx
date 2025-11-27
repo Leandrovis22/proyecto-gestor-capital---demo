@@ -34,7 +34,11 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   const [semanasMostrar, setSemanasMostrar] = useState(2); // Mostrar por defecto 2 semanas
 
   useEffect(() => {
-    fetchData();
+    // Pequeño delay para asegurar que el token esté disponible
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 100);
+
     // Inicializar fecha de hoy en formato YYYY-MM-DD
     const hoy = new Date();
     const year = hoy.getFullYear();
@@ -43,6 +47,8 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
     const fechaHoy = `${year}-${month}-${day}`;
     setFechaInicio(fechaHoy);
     setFechaFin(fechaHoy);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 

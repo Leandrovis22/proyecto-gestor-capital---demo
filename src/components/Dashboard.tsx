@@ -60,7 +60,12 @@ export default function Dashboard({ refreshKey, onUpdate }: DashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    fetchData();
+    // Pequeño delay para asegurar que el token esté disponible
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 

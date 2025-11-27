@@ -28,12 +28,17 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
 
       const data = await response.json();
 
-      if (data.success) {
-        // Guardar token de sesión en sessionStorage
+      if (data.success && data.sessionToken) {
+        // Guardar token INMEDIATAMENTE y SINCRÓNICAMENTE
         sessionStorage.setItem('sessionToken', data.sessionToken);
+        
+        // Esperar un ciclo para que sessionStorage esté disponible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Notificar al padre
         onLogin(data.sessionToken);
       } else {
-        setError('Usuario o contraseña incorrectos');
+        setError(data.error || 'Usuario o contraseña incorrectos');
       }
     } catch (error) {
       setError('Error al iniciar sesión');

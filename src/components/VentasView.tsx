@@ -29,7 +29,11 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
   const [semanasMostrar, setSemanasMostrar] = useState(2); // mostrar por defecto 2 semanas
 
   useEffect(() => {
-    fetchData();
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
