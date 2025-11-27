@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
     const fechaInicio = searchParams.get('fechaInicio');
     const fechaFin = searchParams.get('fechaFin');
     
-    const FECHA_INICIO_CAPITAL_PAGOS = new Date('2025-11-04');
-    const FECHA_INICIO_CAPITAL_VENTAS = new Date('2025-11-04');
+    // Cambiar fecha mínima de pagos a 2025-10-04
+    const FECHA_INICIO_CAPITAL_PAGOS = new Date('2025-10-04');
+    // Cambiar fecha mínima de ventas a 2025-10-04
+    const FECHA_INICIO_CAPITAL_VENTAS = new Date('2025-10-04');
     
     // Calcular ÚLTIMA SEMANA COMPLETA (lunes a domingo) y SEMANA ACTUAL (lunes a domingo)
     const hoy = new Date();

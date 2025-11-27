@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   
   try {
     const searchParams = request.nextUrl.searchParams;
-    const fechaDesde = searchParams.get('desde') || '2025-10-01';
+    // Cambiar fecha mínima por defecto a 2025-10-04
+    const fechaDesde = searchParams.get('desde') || '2025-10-04';
     const clienteId = searchParams.get('clienteId');
     
     const ventas = await prisma.venta.findMany({

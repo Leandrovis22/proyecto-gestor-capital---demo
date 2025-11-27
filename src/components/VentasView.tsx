@@ -74,7 +74,10 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
     return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   };
 
-  const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.totalVenta), 0);
+  // Solo ventas desde 2025-10-04
+  const FECHA_MINIMA = new Date('2025-10-04T00:00:00Z');
+  const ventasDesdeFecha = ventas.filter(v => new Date(v.fechaVenta) >= FECHA_MINIMA);
+  const totalVentas = ventasDesdeFecha.reduce((sum, v) => sum + parseFloat(v.totalVenta), 0);
 
   // Calcular ventas de esta semana completa (lunes a domingo actual)
   const hoy = new Date();
@@ -90,7 +93,7 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
   fechaDomingoActual.setDate(fechaLunesActual.getDate() + 6);
   fechaDomingoActual.setHours(23, 59, 59, 999);
 
-  const ventasSemana = ventas.filter(v => {
+  const ventasSemana = ventasDesdeFecha.filter(v => {
     const fechaVenta = parseDateUTC(v.fechaVenta);
     return fechaVenta >= fechaLunesActual && fechaVenta <= fechaDomingoActual;
   });

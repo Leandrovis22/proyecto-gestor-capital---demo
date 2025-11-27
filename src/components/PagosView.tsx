@@ -50,8 +50,23 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
     try {
       // Fetch pagos
       const pagosRes = await authFetch('/api/pagos');
-      const pagosData = await pagosRes.json();
-      setPagos(pagosData);
+      let pagosData: any = await pagosRes.json();
+
+      // Normalizar la respuesta a un array para evitar errores si viene en otra forma
+      const normalizeToArray = (data: any) => {
+        if (Array.isArray(data)) return data;
+        if (!data) return [];
+        if (Array.isArray(data.rows)) return data.rows;
+        if (Array.isArray(data.data)) return data.data;
+        // Objeto con claves numéricas (resultado serializado de algunas librerías)
+        const keys = Object.keys(data);
+        const numericKeys = keys.filter(k => String(Number(k)) === k).sort((a, b) => Number(a) - Number(b));
+        if (numericKeys.length) return numericKeys.map(k => data[k]);
+        return [];
+      };
+
+      const pagosList = normalizeToArray(pagosData);
+      setPagos(pagosList);
 
       // Fetch clientes para nombres
       const clientesRes = await authFetch('/api/clientes');
@@ -166,7 +181,10 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
 
   const stats = calcularEstadisticasPeriodo();
 
-  const totalPagos = pagos.reduce((sum, p) => sum + parseFloat(p.monto), 0);
+  // Solo pagos desde 2025-10-04
+  const FECHA_MINIMA = new Date('2025-10-04T00:00:00Z');
+  const pagosDesdeFecha = pagos.filter(p => new Date(p.fechaPago) >= FECHA_MINIMA);
+  const totalPagos = pagosDesdeFecha.reduce((sum, p) => sum + parseFloat(p.monto), 0);
 
   // Calcular pagos de esta semana completa (lunes a domingo actual)
   const hoy = new Date();
@@ -182,7 +200,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   fechaDomingoActual.setDate(fechaLunesActual.getDate() + 6);
   fechaDomingoActual.setHours(23, 59, 59, 999);
 
-  const pagosSemana = pagos.filter(p => {
+  const pagosSemana = pagosDesdeFecha.filter(p => {
     const fechaPago = new Date(p.fechaPago);
     return fechaPago >= fechaLunesActual && fechaPago <= fechaDomingoActual;
   });
