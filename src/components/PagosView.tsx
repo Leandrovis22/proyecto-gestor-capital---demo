@@ -254,6 +254,29 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
           <p className="text-xs text-blue-600 mt-2 font-medium">{stats.pagosOsvaldo.length} pagos - Click para ver detalle</p>
         </div>
 
+        {/* Mobile: detalle inline debajo de la card Osvaldo */}
+        {detalleVisible === 'osvaldo' && (
+          <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias Osvaldo</h4>
+              <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <tbody>
+                  {stats.pagosOsvaldo.map((pago) => (
+                    <tr key={pago.id} className="border-t">
+                      <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
+                      <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
+                      <td className="py-2 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Noe */}
         <div
           onClick={() => setDetalleVisible(detalleVisible === 'noe' ? null : 'noe')}
@@ -265,6 +288,29 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
           <p className="text-2xl sm:text-3xl font-bold text-purple-700">{formatMoney(stats.totalNoe.toString())}</p>
           <p className="text-xs text-purple-600 mt-2 font-medium">{stats.pagosNoe.length} pagos - Click para ver detalle</p>
         </div>
+
+        {/* Mobile: detalle inline debajo de la card Noe */}
+        {detalleVisible === 'noe' && (
+          <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias Noe</h4>
+              <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <tbody>
+                  {stats.pagosNoe.map((pago) => (
+                    <tr key={pago.id} className="border-t">
+                      <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
+                      <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
+                      <td className="py-2 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Efectivo */}
         <div
@@ -279,6 +325,29 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
           <p className="text-xs text-green-600 mt-2 font-medium">{stats.pagosEfectivo.length} pagos - Click para ver detalle</p>
         </div>
 
+        {/* Mobile: detalle inline debajo de la card Efectivo */}
+        {detalleVisible === 'efectivo' && (
+          <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">📋 Pagos en Efectivo</h4>
+              <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <tbody>
+                  {stats.pagosEfectivo.map((pago) => (
+                    <tr key={pago.id} className="border-t">
+                      <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
+                      <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
+                      <td className="py-2 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Otros */}
         <div
           onClick={() => setDetalleVisible(detalleVisible === 'otros' ? null : 'otros')}
@@ -291,11 +360,35 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
           <p className="text-2xl sm:text-3xl font-bold text-orange-700">{formatMoney(stats.totalOtros.toString())}</p>
           <p className="text-xs text-orange-600 mt-2 font-medium">{stats.pagosOtros.length} pagos - Click para ver detalle</p>
         </div>
+
+        {/* Mobile: detalle inline debajo de la card Otros */}
+        {detalleVisible === 'otros' && (
+          <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">📋 Otros Pagos</h4>
+              <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <tbody>
+                  {stats.pagosOtros.map((pago) => (
+                    <tr key={pago.id} className="border-t">
+                      <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
+                      <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
+                      <td className="py-2 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Detalle de pagos por categoría */}
+      {/* Detalle de pagos por categoría (desktop) */}
       {detalleVisible && (
-        <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-500">
+        <div className="hidden md:block">
+          <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-500">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-gray-900">
               📋 Detalle de {
@@ -345,6 +438,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       )}
