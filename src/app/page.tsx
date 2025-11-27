@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import { authFetch } from '@/lib/auth';
 import Dashboard from '@/components/Dashboard';
 import GastosManager from '@/components/GastosManager';
 import InversionesManager from '@/components/InversionesManager';
@@ -55,10 +56,35 @@ export default function Home() {
   }, []);
 
   const handleLogin = (token: string) => {
-    setSessionToken(token);
-    setIsAuthenticated(true);
-    // Cargar estado de sincronización inmediatamente tras login
-    fetchSyncStatus(token);
+    // Validar el token antes de marcar como autenticado para evitar
+    // montar componentes que hagan peticiones y provoquen 401.
+    (async () => {
+      try {
+        // Asegurar sessionStorage (LoginForm ya lo guarda, pero reafirmar)
+        sessionStorage.setItem('sessionToken', token);
+        // Intentar una petición ligera que requiere auth (dashboard)
+        const res = await fetch('/api/dashboard', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'X-Session-Token': token }
+        });
+
+        if (res.ok) {
+          setSessionToken(token);
+          setIsAuthenticated(true);
+          // Cargar estado de sincronización inmediatamente tras login
+          fetchSyncStatus(token);
+          addToast({ type: 'success', message: '✅ Sesión iniciada correctamente' });
+        } else {
+          // Token inválido: limpiar y mostrar error
+          sessionStorage.removeItem('sessionToken');
+          addToast({ type: 'error', message: '❌ No se pudo validar la sesión. Intenta de nuevo.' });
+        }
+      } catch (err) {
+        console.error('Error validando token tras login:', err);
+        sessionStorage.removeItem('sessionToken');
+        addToast({ type: 'error', message: '❌ Error verificando sesión. Intenta de nuevo.' });
+      }
+    })();
   };
 
   const handleUpdateFromDashboard = (fecha: string) => {
@@ -68,12 +94,8 @@ export default function Home() {
 
   async function fetchSyncStatus(token: string) {
     try {
-      const estadoResponse = await fetch('/api/sync/webhook', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': token || ''
-        }
+      const estadoResponse = await authFetch('/api/sync/webhook', {
+        method: 'GET'
       });
 
       const estadoData = await estadoResponse.json();
@@ -156,12 +178,9 @@ export default function Home() {
       setIsRefreshing(true);
       // marcar que la sincronización está en curso (bloquea botones)
       if (forzarTodo) setSyncRunning(true);
-      const response = await fetch('/api/sync/trigger', {
+      const response = await authFetch('/api/sync/trigger', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': sessionToken || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ forzarTodo })
       });
 
@@ -185,13 +204,7 @@ export default function Home() {
           }
           intervalRef.current = setInterval(async () => {
             try {
-              const estadoResponse = await fetch('/api/sync/webhook', {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Session-Token': sessionToken || ''
-                }
-              });
+              const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' });
               const estadoData = await estadoResponse.json();
               if (estadoData.success && estadoData.estado) {
                 setSyncStatus(estadoData.estado.mensaje);
@@ -241,13 +254,7 @@ export default function Home() {
         }
         intervalRef.current = setInterval(async () => {
           try {
-            const estadoResponse = await fetch('/api/sync/webhook', {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Session-Token': sessionToken || ''
-              }
-            });
+            const estadoResponse = await authFetch('/api/sync/webhook', { method: 'GET' });
 
             const estadoData = await estadoResponse.json();
             if (estadoData.success && estadoData.estado) {

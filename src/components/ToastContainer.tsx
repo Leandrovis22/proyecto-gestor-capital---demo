@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 type Toast = {
   id: string;
@@ -10,6 +10,38 @@ type Toast = {
 };
 
 export default function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void; }) {
+  // Mantener referencias a timers para limpiar si cambia la lista
+  const timersRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    // Para cada toast nuevo, crear un timer que lo cierre en 10s
+    toasts.forEach((t) => {
+      if (!timersRef.current.has(t.id)) {
+        const timer = window.setTimeout(() => {
+          onDismiss(t.id);
+        }, 10000); // 10 segundos
+        timersRef.current.set(t.id, timer);
+      }
+    });
+
+    // Limpiar timers de toasts que ya no existen
+    const existingIds = new Set(toasts.map((t) => t.id));
+    for (const [id, timer] of Array.from(timersRef.current.entries())) {
+      if (!existingIds.has(id)) {
+        clearTimeout(timer);
+        timersRef.current.delete(id);
+      }
+    }
+
+    // Cleanup general al desmontar
+    return () => {
+      for (const timer of timersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      timersRef.current.clear();
+    };
+  }, [toasts, onDismiss]);
+
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
       {toasts.map((t) => (

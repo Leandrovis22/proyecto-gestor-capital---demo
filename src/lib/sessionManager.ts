@@ -12,8 +12,8 @@ if (!global.activeSessions) {
   console.log('🔧 Sistema de sesiones inicializado');
 }
 
-// Duración de sesión: 1 hora
-export const SESSION_DURATION = 1 * 60 * 60 * 1000;
+// Duración de sesión: 24 horas
+export const SESSION_DURATION = 24 * 60 * 60 * 1000;
 
 // Limpiar sesiones expiradas cada hora
 if (!global.activeSessions) {
