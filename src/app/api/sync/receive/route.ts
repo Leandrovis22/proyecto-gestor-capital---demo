@@ -222,14 +222,14 @@ async function regenerarPagos(tx: any, clienteId: string, archivoTimestamp: Date
     for (const [dia, regs] of pagosPorDia.entries()) {
       // Dentro del mismo día, ordenar los registros por timestamp existente si hay coincidencias
       // Construir keys y try to preserve original timestamp ordering
-      const regsConTimestamp = regs.map(r => {
+      const regsConTimestamp = regs.map((r: { fechaPago: Date; entrega: number; columnaK?: string }) => {
         const key = `${r.fechaPago!.toISOString()}|${r.entrega.toString()}|${(r.columnaK || '')}`;
         const ts = mapaTimestamps.get(key) || archivoTimestamp || new Date();
         return { reg: r, ts };
       });
 
       // Orden ascendente por timestamp para numeración 1..N (luego se usa numeración inversa para mantener behavior previo)
-      regsConTimestamp.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+      regsConTimestamp.sort((a: { reg: any; ts: Date }, b: { reg: any; ts: Date }) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
       const total = regsConTimestamp.length;
       for (let i = 0; i < total; i++) {
