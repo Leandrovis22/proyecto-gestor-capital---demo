@@ -146,6 +146,8 @@ export default function Home() {
         setSyncStatus(estadoData.estado.mensaje);
         if (estadoData.estado.estado === 'completado') {
           setLastSyncSummary(`✅ Sincronización completada: ${estadoData.estado.archivosActualizados || 0} archivos actualizados`);
+        } else if (estadoData.estado.estado === 'en_progreso') {
+          setLastSyncSummary(`🔄 Sincronizando: ${estadoData.estado.mensaje || 'Procesando...'}`);
         }
         const running = estadoData.estado.estado === 'en_progreso';
         setSyncRunning(running);
@@ -234,6 +236,9 @@ export default function Home() {
                 setSyncStatus(estadoData.estado.mensaje);
                 const runningNow = estadoData.estado.estado === 'en_progreso';
                 setSyncRunning(runningNow);
+                if (estadoData.estado.estado === 'en_progreso') {
+                  setLastSyncSummary(`🔄 Sincronizando: ${estadoData.estado.mensaje || 'Procesando...'}`);
+                }
                 // Actualizar lastUpdate si viene
                 if (estadoData.estado.ultimaActualizacion) {
                   try {
@@ -465,7 +470,10 @@ export default function Home() {
                       🔄 Actualizar Todo
                     </button>
                     <button
-                      onClick={() => { handleSync(false); setMobileMenuOpen(false); }}
+                      onClick={() => { 
+                        handleSync(false);
+                        setTimeout(() => setMobileMenuOpen(false), 100);
+                      }}
                       disabled={isRefreshing || syncRunning}
                       className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-semibold text-sm"
                     >
