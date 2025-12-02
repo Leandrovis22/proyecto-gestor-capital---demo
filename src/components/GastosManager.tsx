@@ -49,7 +49,11 @@ interface Gasto {
         const response = await authFetch('/api/gastos');
         const data = await response.json();
         const gastosOrdenados = Array.isArray(data)
-          ? data.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+          ? data.sort((a, b) => {
+              const fechaCompare = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+              if (fechaCompare !== 0) return fechaCompare;
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            })
           : [];
         setGastos(gastosOrdenados);
       } catch (error) {
@@ -334,21 +338,36 @@ interface Gasto {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {gastosFiltrados.map((gasto) => (
-                      <tr key={gasto.id} className={`border-b border-gray-100 hover:bg-gradient-to-r transition-colors duration-150 ${gasto.confirmado ? 'hover:from-gray-50 hover:to-gray-100' : 'bg-gradient-to-r from-yellow-50 to-amber-50 hover:from-yellow-100 hover:to-amber-100'}`}>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-semibold whitespace-nowrap">{formatDate(gasto.fecha)}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{gasto.descripcion}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-red-600 whitespace-nowrap">{formatMoney(gasto.monto)}</td>
-                        <td className="px-6 py-4">{!gasto.confirmado ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleToggleConfirmado(gasto)} className={`px-3 py-1.5 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md text-sm ${gasto.confirmado ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`} title={gasto.confirmado ? 'Desconfirmar' : 'Confirmar'}>{gasto.confirmado ? '⏸️' : '✅'}</button>
-                            <button onClick={() => handleEdit(gasto)} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm" title="Editar">✏️</button>
-                            <button onClick={() => handleDelete(gasto.id)} disabled={actionLoading} className={`px-3 py-1.5 ${actionLoading ? 'bg-gray-400' : 'bg-red-100'} text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm`} title="Eliminar">{actionLoading ? 'Cargando...' : '🗑️'}</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {gastosFiltrados.map((gasto, index) => {
+                      const fechaActual = formatDate(gasto.fecha);
+                      const fechaAnterior = index > 0 ? formatDate(gastosFiltrados[index - 1].fecha) : null;
+                      const cambioFecha = fechaActual !== fechaAnterior;
+
+                      return (
+                        <Fragment key={gasto.id}>
+                          {cambioFecha && index > 0 && (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-2">
+                                <div className="border-t-4 border-blue-800"></div>
+                              </td>
+                            </tr>
+                          )}
+                          <tr className={`border-b border-gray-100 hover:bg-gradient-to-r transition-colors duration-150 ${gasto.confirmado ? 'hover:from-gray-50 hover:to-gray-100' : 'bg-gradient-to-r from-yellow-50 to-amber-50 hover:from-yellow-100 hover:to-amber-100'}`}>
+                            <td className="px-6 py-4 text-sm text-gray-600 font-semibold whitespace-nowrap">{formatDate(gasto.fecha)}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">{gasto.descripcion}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-red-600 whitespace-nowrap">{formatMoney(gasto.monto)}</td>
+                            <td className="px-6 py-4">{!gasto.confirmado ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex gap-2 justify-end">
+                                <button onClick={() => handleToggleConfirmado(gasto)} className={`px-3 py-1.5 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md text-sm ${gasto.confirmado ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`} title={gasto.confirmado ? 'Desconfirmar' : 'Confirmar'}>{gasto.confirmado ? '⏸️' : '✅'}</button>
+                                <button onClick={() => handleEdit(gasto)} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm" title="Editar">✏️</button>
+                                <button onClick={() => handleDelete(gasto.id)} disabled={actionLoading} className={`px-3 py-1.5 ${actionLoading ? 'bg-gray-400' : 'bg-red-100'} text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm`} title="Eliminar">{actionLoading ? 'Cargando...' : '🗑️'}</button>
+                              </div>
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
