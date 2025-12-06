@@ -24,6 +24,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'same-origin',
       });
 
       const data = await response.json();
@@ -31,9 +32,6 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       if (data.success && data.sessionToken) {
         // Guardar token en sessionStorage
         sessionStorage.setItem('sessionToken', data.sessionToken);
-
-        // Esperar un momento para que Chrome detecte el login exitoso
-        await new Promise(resolve => setTimeout(resolve, 50));
 
         // Notificar al padre
         onLogin(data.sessionToken);
@@ -58,7 +56,8 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           <p className="text-lg text-gray-600">Julieta Joyas 💎</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on" method="post" action="/api/auth">
+        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">
+          <input type="hidden" name="form-name" value="login" />
           <div>
             <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
               Usuario

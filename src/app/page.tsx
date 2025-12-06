@@ -9,7 +9,7 @@ import PagosView from '@/components/PagosView';
 import VentasView from '@/components/VentasView';
 import DeudoresView from '@/components/DeudoresView';
 import LoginForm from '@/components/LoginForm';
-import ToastContainer from '@/components/ToastContainer';
+import toast from 'react-hot-toast';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'gastos' | 'inversiones' | 'pagos' | 'ventas' | 'deudores'>('dashboard');
@@ -23,7 +23,6 @@ export default function Home() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [lastSyncSummary, setLastSyncSummary] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [toasts, setToasts] = useState<Array<{ id: string; title?: string; message: string; type?: 'info' | 'success' | 'error' | 'warning' }>>([]);
   // Flag para prevenir race conditions durante login
   const [isInitializing, setIsInitializing] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -59,7 +58,7 @@ export default function Home() {
       sessionStorage.removeItem('sessionToken');
       setSessionToken(null);
       setIsAuthenticated(false);
-      addToast({ type: 'error', message: '🔒 Sesión expirada. Por favor inicia sesión de nuevo.' });
+      toast.error('🔒 Sesión expirada. Por favor inicia sesión de nuevo.');
     };
     window.addEventListener('sessionExpired', handler as EventListener);
     return () => window.removeEventListener('sessionExpired', handler as EventListener);
@@ -84,7 +83,7 @@ export default function Home() {
     setSessionToken(token);
     setIsAuthenticated(true);
 
-    addToast({ type: 'success', message: '✅ Sesión iniciada correctamente' });
+    toast.success('✅ Sesión iniciada correctamente');
 
     // Esperar un poco más antes de hacer peticiones
     setTimeout(() => {
@@ -171,14 +170,7 @@ export default function Home() {
     setIsAuthenticated(false);
   };
 
-  const addToast = (toast: { title?: string; message: string; type?: 'info' | 'success' | 'error' | 'warning' }) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    setToasts((t) => [...t, { id, ...toast }]);
-  };
 
-  const removeToast = (id: string) => {
-    setToasts((t) => t.filter(x => x.id !== id));
-  };
 
   useEffect(() => {
     return () => {
@@ -215,14 +207,14 @@ export default function Home() {
       if (data.exito) {
         // Si el resultado indica que ya completó, mostrar resumen
         if (data.estado === 'completado' || data.mensaje?.toLowerCase().includes('completada')) {
-          addToast({ type: 'success', message: `✅ Sincronización completada\nArchivos actualizados: ${data.archivosActualizados || 0}\nArchivos omitidos: ${data.archivosOmitidos || 0}\nDuración: ${data.duracionSegundos || 'n/a'}s` });
+          toast.success(`✅ Sincronización completada\nArchivos actualizados: ${data.archivosActualizados || 0}\nArchivos omitidos: ${data.archivosOmitidos || 0}\nDuración: ${data.duracionSegundos || 'n/a'}s`);
           setRefreshKey(prev => prev + 1);
           setLastSyncSummary(`✅ Sincronización completada: ${data.archivosActualizados || 0} archivos actualizados`);
         } else {
           // La sincronización quedó en progreso (procesamiento por lotes). No mostrar alerta de completado.
           setSyncRunning(true);
           // Informar que se inició y se monitoreará
-          addToast({ type: 'info', message: '🔔 Sincronización iniciada y en progreso. Te avisará cuando termine.' });
+          toast('🔔 Sincronización iniciada y en progreso. Te avisará cuando termine.');
 
           // Iniciar polling (si no existe) para detectar cuando el webhook reporte completado
           if (intervalRef.current) {
@@ -256,7 +248,7 @@ export default function Home() {
                 if (!runningNow) {
                   // Completó: mostrar toast final con datos del webhook
                   const s = estadoData.estado;
-                  addToast({ type: 'success', message: `✅ Sincronización completada\nArchivos actualizados: ${s.archivosActualizados || 0}\nArchivos omitidos: ${s.archivosOmitidos || 0}\nDuración: ${s.duracionSegundos || 'n/a'}s` });
+                  toast.success(`✅ Sincronización completada\nArchivos actualizados: ${s.archivosActualizados || 0}\nArchivos omitidos: ${s.archivosOmitidos || 0}\nDuración: ${s.duracionSegundos || 'n/a'}s`);
                   setRefreshKey(prev => prev + 1);
                   setLastSyncSummary(`✅ Sincronización completada: ${s.archivosActualizados || 0} archivos actualizados`);
                   if (intervalRef.current) {
@@ -268,12 +260,12 @@ export default function Home() {
               }
             } catch (err) {
               console.error('Error polling sync status:', err);
-              addToast({ type: 'error', message: 'Error consultando estado de sincronización.' });
+              toast.error('Error consultando estado de sincronización.');
             }
           }, 15000);
         }
       } else {
-        addToast({ type: 'error', message: `❌ Error en sincronización: ${data.error || 'Error desconocido'}` });
+        toast.error(`❌ Error en sincronización: ${data.error || 'Error desconocido'}`);
       }
 
       if (forzarTodo) {
@@ -319,7 +311,7 @@ export default function Home() {
         }, 30000);
       }
     } catch (error) {
-      addToast({ type: 'error', message: `❌ Error al sincronizar: ${error}` });
+      toast.error(`❌ Error al sincronizar: ${error}`);
     } finally {
       setIsRefreshing(false);
     }
@@ -366,7 +358,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <ToastContainer toasts={toasts} onDismiss={removeToast} />
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200 relative">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-3">
