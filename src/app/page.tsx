@@ -54,6 +54,13 @@ export default function Home() {
   // Escuchar evento global cuando la sesión expire (emitted desde authFetch)
   useEffect(() => {
     const handler = () => {
+      // Solo procesar si realmente estamos autenticados
+      // Ignorar eventos durante el proceso de login
+      if (!isAuthenticated || loginInProgressRef.current) {
+        console.log('Evento sessionExpired ignorado: usuario no autenticado o login en progreso');
+        return;
+      }
+      
       // Remover token y actualizar estado sin recargar la página
       sessionStorage.removeItem('sessionToken');
       setSessionToken(null);
@@ -62,7 +69,7 @@ export default function Home() {
     };
     window.addEventListener('sessionExpired', handler as EventListener);
     return () => window.removeEventListener('sessionExpired', handler as EventListener);
-  }, []);
+  }, [isAuthenticated]);
 
   const handleLogin = (token: string) => {
     // Prevenir llamadas concurrentes
@@ -73,11 +80,10 @@ export default function Home() {
 
     loginInProgressRef.current = true;
 
-    // CRÍTICO: Marcar en auth.ts que estamos en proceso de login
+    // CRÍTICO: Marcar en auth.ts que estamos en proceso de login DE FORMA SÍNCRONA
     // Esto evita que 401s transitorios cierren la sesión
-    import('@/lib/auth').then(({ setLoginInProgress }) => {
-      setLoginInProgress(true);
-    });
+    const { setLoginInProgress } = require('@/lib/auth');
+    setLoginInProgress(true);
 
     // Token ya está guardado en sessionStorage por LoginForm
     setSessionToken(token);
@@ -94,13 +100,12 @@ export default function Home() {
         });
       }
 
-      // Desmarcar flag de login después de 1 segundo completo
+      // Desmarcar flag de login después de 2 segundos completos para dar tiempo a cargar todo
       setTimeout(() => {
-        import('@/lib/auth').then(({ setLoginInProgress }) => {
-          setLoginInProgress(false);
-        });
+        const { setLoginInProgress } = require('@/lib/auth');
+        setLoginInProgress(false);
         loginInProgressRef.current = false;
-      }, 1000);
+      }, 2000);
     }, 400);
   };
 
