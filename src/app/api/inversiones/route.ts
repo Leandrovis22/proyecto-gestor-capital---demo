@@ -1,12 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { validateAuth } from '@/lib/validateAuth';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { getInversiones, addInversion, updateInversion } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
   try {
-    const inversiones = await prisma.inversion.findMany({
-      orderBy: { fecha: 'desc' }
-    });
+    const inversiones = getInversiones();
     return NextResponse.json(inversiones);
   } catch (error) {
     return NextResponse.json({ error: 'Error al obtener inversiones' }, { status: 500 });
@@ -14,38 +11,33 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = validateAuth(request);
-  if (authError) return authError;
-  
   try {
     const body = await request.json();
-    const inversion = await prisma.inversion.create({
-      data: {
-        fecha: new Date(body.fecha),
-        descripcion: body.descripcion,
-        monto: body.monto,
-        categoria: body.categoria,
-        confirmado: body.confirmado ?? true
-      }
+    const nuevaInversion = addInversion({
+      fecha: body.fecha,
+      descripcion: body.descripcion,
+      monto: parseFloat(body.monto),
+      confirmada: body.confirmada ?? true
     });
-    return NextResponse.json(inversion);
+    return NextResponse.json(nuevaInversion);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al crear inversión' }, { status: 400 });
+    return NextResponse.json({ error: 'Error al crear inversión' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const body = await request.json();
+    const inversionActualizada = updateInversion(body.id, {
+      confirmada: body.confirmada
+    });
     
-    if (!id) {
-      return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+    if (!inversionActualizada) {
+      return NextResponse.json({ error: 'Inversión no encontrada' }, { status: 404 });
     }
     
-    await prisma.inversion.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json(inversionActualizada);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al eliminar inversión' }, { status: 400 });
+    return NextResponse.json({ error: 'Error al actualizar inversión' }, { status: 500 });
   }
 }

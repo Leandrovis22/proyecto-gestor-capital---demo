@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, Fragment } from 'react';
-import { authFetch } from '@/lib/auth';
 
 interface Gasto {
     id: string;
@@ -46,7 +45,7 @@ interface Gasto {
 
     const fetchGastos = async () => {
       try {
-        const response = await authFetch('/api/gastos');
+        const response = await fetch('/api/gastos');
         const data = await response.json();
         const gastosOrdenados = Array.isArray(data)
           ? data.sort((a, b) => {
@@ -91,7 +90,7 @@ interface Gasto {
 
         const fechaISO = `${fecha}T12:00:00.000Z`;
 
-        const response = await authFetch(url, {
+        const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmado }),
@@ -125,7 +124,7 @@ interface Gasto {
 
       setActionLoading(true);
       try {
-        const response = await authFetch(`/api/gastos/${id}`, { method: 'DELETE' });
+        const response = await fetch(`/api/gastos/${id}`, { method: 'DELETE' });
         if (response.ok) fetchGastos(); else alert('Error al eliminar gasto');
       } catch (error) {
         console.error('Error:', error);
@@ -138,10 +137,15 @@ interface Gasto {
     const handleToggleConfirmado = async (gasto: Gasto) => {
       setActionLoading(true);
       try {
-        const response = await authFetch(`/api/gastos/${gasto.id}`, {
+        const response = await fetch(`/api/gastos/${gasto.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...gasto, monto: parseFloat(gasto.monto), confirmado: !gasto.confirmado }),
+          body: JSON.stringify({ 
+            fecha: gasto.fecha,
+            descripcion: gasto.descripcion,
+            monto: parseFloat(gasto.monto), 
+            confirmado: !gasto.confirmado 
+          }),
         });
         if (response.ok) fetchGastos(); else alert('Error al actualizar gasto');
       } catch (error) {

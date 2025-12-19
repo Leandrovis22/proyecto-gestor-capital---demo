@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
-import { authFetch } from '@/lib/auth';
 
 interface DashboardData {
   capital: {
@@ -71,7 +70,7 @@ export default function Dashboard({ refreshKey, onUpdate }: DashboardProps) {
 
   const fetchData = async () => {
     try {
-      const response = await authFetch('/api/dashboard');
+      const response = await fetch('/api/dashboard');
       const json = await response.json();
       setData(json);
       if (onUpdate && json.fechaActualizacion) {

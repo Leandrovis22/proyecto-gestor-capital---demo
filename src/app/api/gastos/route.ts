@@ -1,12 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { validateAuth } from '@/lib/validateAuth';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { getGastos, addGasto, updateGasto } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
   try {
-    const gastos = await prisma.gasto.findMany({
-      orderBy: { fecha: 'desc' }
-    });
+    const gastos = getGastos();
     return NextResponse.json(gastos);
   } catch (error) {
     return NextResponse.json({ error: 'Error al obtener gastos' }, { status: 500 });
@@ -14,38 +11,33 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = validateAuth(request);
-  if (authError) return authError;
-  
   try {
     const body = await request.json();
-    const gasto = await prisma.gasto.create({
-      data: {
-        fecha: new Date(body.fecha),
-        descripcion: body.descripcion,
-        monto: body.monto,
-        categoria: body.categoria,
-        confirmado: body.confirmado ?? true
-      }
+    const nuevoGasto = addGasto({
+      fecha: body.fecha,
+      descripcion: body.descripcion,
+      monto: parseFloat(body.monto),
+      confirmado: body.confirmado ?? true
     });
-    return NextResponse.json(gasto);
+    return NextResponse.json(nuevoGasto);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al crear gasto' }, { status: 400 });
+    return NextResponse.json({ error: 'Error al crear gasto' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const body = await request.json();
+    const gastoActualizado = updateGasto(body.id, {
+      confirmado: body.confirmado
+    });
     
-    if (!id) {
-      return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+    if (!gastoActualizado) {
+      return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 });
     }
     
-    await prisma.gasto.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json(gastoActualizado);
   } catch (error) {
-    return NextResponse.json({ error: 'Error al eliminar gasto' }, { status: 400 });
+    return NextResponse.json({ error: 'Error al actualizar gasto' }, { status: 500 });
   }
 }

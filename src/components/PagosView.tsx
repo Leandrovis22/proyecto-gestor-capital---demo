@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import { authFetch } from '@/lib/auth';
+import { formatTipoPago } from '@/lib/demoData';
 
 interface Pago {
   id: string;
@@ -64,7 +64,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   const fetchData = async () => {
     try {
       // Fetch pagos
-      const pagosRes = await authFetch('/api/pagos');
+      const pagosRes = await fetch('/api/pagos');
       let pagosData: any = await pagosRes.json();
 
       // Normalizar la respuesta a un array para evitar errores si viene en otra forma
@@ -84,13 +84,13 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       setPagos(pagosList);
 
       // Fetch clientes para nombres
-      const clientesRes = await authFetch('/api/clientes');
+      const clientesRes = await fetch('/api/clientes');
       const clientesData = await clientesRes.json();
       const clientesMap = new Map<string, Cliente>(clientesData.map((c: Cliente) => [c.id, c]));
       setClientes(clientesMap);
 
       // Fetch gastos
-      const gastosRes = await authFetch('/api/gastos');
+      const gastosRes = await fetch('/api/gastos');
       const gastosData = await gastosRes.json();
       setGastos(Array.isArray(gastosData) ? gastosData : []);
     } catch (error) {
@@ -151,12 +151,12 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       });
     }
 
-    let totalOsvaldo = 0;
-    let totalNoe = 0;
+    let totalJefe = 0;
+    let totalEmpleado = 0;
     let totalEfectivo = 0;
     let totalOtros = 0;
-    let pagosOsvaldo: Pago[] = [];
-    let pagosNoe: Pago[] = [];
+    let pagosJefe: Pago[] = [];
+    let pagosEmpleado: Pago[] = [];
     let pagosEfectivo: Pago[] = [];
     let pagosOtros: Pago[] = [];
 
@@ -164,15 +164,15 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       const monto = parseFloat(pago.monto);
       const tipoLower = pago.tipoPago ? pago.tipoPago.toLowerCase().trim() : '';
 
-      // Buscar "osv" o "tra os" en el tipo (para cualquier variante de Osvaldo)
-      if (tipoLower.includes('osv') || tipoLower.includes('tra os')) {
-        totalOsvaldo += monto;
-        pagosOsvaldo.push(pago);
+      // Buscar "jefe" para Transferencia a Jefe
+      if (tipoLower.includes('jefe')) {
+        totalJefe += monto;
+        pagosJefe.push(pago);
       }
-      // Buscar "noe" en el tipo (para cualquier variante de Noelia)
-      else if (tipoLower.includes('noe')) {
-        totalNoe += monto;
-        pagosNoe.push(pago);
+      // Buscar "empleado" para Transferencia a Empleado
+      else if (tipoLower.includes('empleado')) {
+        totalEmpleado += monto;
+        pagosEmpleado.push(pago);
       }
       // Buscar "efe" para efectivo
       else if (tipoLower.includes('efe')) {
@@ -187,13 +187,13 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
     });
 
     return {
-      totalOsvaldo,
-      totalNoe,
+      totalJefe,
+      totalEmpleado,
       totalEfectivo,
       totalOtros,
       cantidadPagos: pagosFiltrados.length,
-      pagosOsvaldo,
-      pagosNoe,
+      pagosJefe,
+      pagosEmpleado,
       pagosEfectivo,
       pagosOtros
     };
@@ -380,29 +380,29 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
 
       {/* Estadísticas por tipo de pago */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Osvaldo */}
+        {/* Jefe */}
         <div
-          onClick={() => setDetalleVisible(detalleVisible === 'osvaldo' ? null : 'osvaldo')}
+          onClick={() => setDetalleVisible(detalleVisible === 'jefe' ? null : 'jefe')}
           className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 border-blue-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Tra Osvaldo</h4>
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Transferencia a Jefe</h4>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-blue-700">{formatMoney(stats.totalOsvaldo.toString())}</p>
-          <p className="text-xs text-blue-600 mt-2 font-medium">{stats.pagosOsvaldo.length} pagos - Click para ver detalle</p>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-700">{formatMoney(stats.totalJefe.toString())}</p>
+          <p className="text-xs text-blue-600 mt-2 font-medium">{stats.pagosJefe.length} pagos - Click para ver detalle</p>
         </div>
 
-        {/* Mobile: detalle inline debajo de la card Osvaldo */}
-        {detalleVisible === 'osvaldo' && (
+        {/* Mobile: detalle inline debajo de la card Jefe */}
+        {detalleVisible === 'jefe' && (
           <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias Osvaldo</h4>
+              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias a Jefe</h4>
               <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <tbody>
-                  {stats.pagosOsvaldo.map((pago) => (
+                  {stats.pagosJefe.map((pago) => (
                     <tr key={pago.id} className="border-t">
                       <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
                       <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
@@ -415,29 +415,29 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
           </div>
         )}
 
-        {/* Noe */}
+        {/* Empleado */}
         <div
-          onClick={() => setDetalleVisible(detalleVisible === 'noe' ? null : 'noe')}
+          onClick={() => setDetalleVisible(detalleVisible === 'empleado' ? null : 'empleado')}
           className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 border-purple-500 hover:shadow-xl transition-all duration-200 cursor-pointer hover:scale-105"
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Tra Noe</h4>
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Transferencia a Empleado</h4>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-purple-700">{formatMoney(stats.totalNoe.toString())}</p>
-          <p className="text-xs text-purple-600 mt-2 font-medium">{stats.pagosNoe.length} pagos - Click para ver detalle</p>
+          <p className="text-2xl sm:text-3xl font-bold text-purple-700">{formatMoney(stats.totalEmpleado.toString())}</p>
+          <p className="text-xs text-purple-600 mt-2 font-medium">{stats.pagosEmpleado.length} pagos - Click para ver detalle</p>
         </div>
 
-        {/* Mobile: detalle inline debajo de la card Noe */}
-        {detalleVisible === 'noe' && (
+        {/* Mobile: detalle inline debajo de la card Empleado */}
+        {detalleVisible === 'empleado' && (
           <div className="md:hidden bg-white rounded-xl shadow mt-3 py-4 px-2 col-span-full">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias Noe</h4>
+              <h4 className="text-sm font-semibold text-gray-800">📋 Transferencias a Empleado</h4>
               <button onClick={() => setDetalleVisible(null)} className="text-sm text-red-500 font-semibold">✕ Cerrar</button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <tbody>
-                  {stats.pagosNoe.map((pago) => (
+                  {stats.pagosEmpleado.map((pago) => (
                     <tr key={pago.id} className="border-t">
                       <td className="py-2 text-sm text-gray-600">{formatDate(pago.fechaPago)}</td>
                       <td className="py-2 px-2 text-sm font-semibold">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
@@ -524,14 +524,14 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
       </div>
 
       {/* Detalle de pagos por categoría (desktop) */}
-      {detalleVisible && ['osvaldo', 'noe', 'efectivo', 'otros'].includes(detalleVisible) && (
+      {detalleVisible && ['jefe', 'empleado', 'efectivo', 'otros'].includes(detalleVisible) && (
         <div className="hidden md:block">
           <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-500">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-gray-900">
               📋 Detalle de {
-                detalleVisible === 'osvaldo' ? 'Transferencias Osvaldo' :
-                  detalleVisible === 'noe' ? 'Transferencias Noe' :
+                detalleVisible === 'jefe' ? 'Transferencias a Jefe' :
+                  detalleVisible === 'empleado' ? 'Transferencias a Empleado' :
                     detalleVisible === 'efectivo' ? 'Pagos en Efectivo' :
                       'Otros Pagos'
               }
@@ -555,8 +555,8 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(detalleVisible === 'osvaldo' ? stats.pagosOsvaldo :
-                  detalleVisible === 'noe' ? stats.pagosNoe :
+                {(detalleVisible === 'jefe' ? stats.pagosJefe :
+                  detalleVisible === 'empleado' ? stats.pagosEmpleado :
                     detalleVisible === 'efectivo' ? stats.pagosEfectivo :
                       stats.pagosOtros
                 ).map((pago) => (
@@ -569,7 +569,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                     <td className="px-6 py-4 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {pago.tipoPago}
+                        {formatTipoPago(pago.tipoPago)}
                       </span>
                     </td>
                   </tr>
@@ -627,7 +627,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                       <span className="text-sm font-bold text-green-600">{formatMoney(pago.monto)}</span>
                     </div>
                     <div className="mt-1">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs">{pago.tipoPago}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs">{formatTipoPago(pago.tipoPago)}</span>
                     </div>
                   </div>
                 ))}
@@ -753,7 +753,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                       <td className="px-4 py-3 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {pago.tipoPago}
+                          {formatTipoPago(pago.tipoPago)}
                         </span>
                       </td>
                     </tr>
@@ -893,7 +893,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900">{clientes.get(pago.clienteId)?.nombre || 'Desconocido'}</td>
                         <td className="px-4 py-3 text-sm font-bold text-green-600">{formatMoney(pago.monto)}</td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{pago.tipoPago}</span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{formatTipoPago(pago.tipoPago)}</span>
                         </td>
                       </tr>
                     </Fragment>
@@ -936,7 +936,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                         </div>
                         <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
                           <span>{fechaActual}</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{pago.tipoPago}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{formatTipoPago(pago.tipoPago)}</span>
                         </div>
                       </div>
                     </Fragment>

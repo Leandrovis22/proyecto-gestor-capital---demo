@@ -1,30 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { validateAuth } from '@/lib/validateAuth';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { getVentas, getClientes } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
-  const authError = validateAuth(request);
-  if (authError) return authError;
-  
   try {
-    const searchParams = request.nextUrl.searchParams;
-    // Cambiar fecha mínima por defecto a 2025-10-04
-    const fechaDesde = searchParams.get('desde') || '2025-10-04';
-    const clienteId = searchParams.get('clienteId');
+    const ventas = getVentas();
+    const clientes = getClientes();
     
-    const ventas = await prisma.venta.findMany({
-      where: {
-        fechaVenta: { gte: new Date(fechaDesde) },
-        ...(clienteId && { clienteId })
-      },
-      include: { cliente: true },
-      orderBy: [
-        { fechaVenta: 'desc' },
-        { timestampArchivo: 'desc' }
-      ]
-    });
+    const ventasConCliente = ventas.map(venta => ({
+      ...venta,
+      cliente: clientes.find(c => c.id === venta.clienteId) || { nombre: 'Desconocido' }
+    }));
     
-    return NextResponse.json(ventas);
+    return NextResponse.json(ventasConCliente);
   } catch (error) {
     return NextResponse.json({ error: 'Error al obtener ventas' }, { status: 500 });
   }

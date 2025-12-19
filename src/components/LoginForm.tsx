@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 
@@ -51,9 +51,9 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Gestor Capital
+            Gestor Capital Demo
           </h1>
-          <p className="text-lg text-gray-600">Julieta Joyas 💎</p>
+          <p className="text-lg text-gray-600">Versión de demostración</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">

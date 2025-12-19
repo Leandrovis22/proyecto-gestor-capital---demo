@@ -1,24 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { validateAuth } from '@/lib/validateAuth';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { getClientes } from '@/lib/demoData';
 
 export async function GET(request: NextRequest) {
-  const authError = validateAuth(request);
-  if (authError) return authError;
-  
   try {
     const searchParams = request.nextUrl.searchParams;
     const soloDeudores = searchParams.get('deudores') === 'true';
     
-    const clientes = await prisma.cliente.findMany({
-      where: soloDeudores ? { saldoAPagar: { gt: 0 } } : undefined,
-      include: {
-        _count: {
-          select: { pagos: true, ventas: true }
-        }
-      },
-      orderBy: { saldoAPagar: 'desc' }
-    });
+    let clientes = getClientes();
+    
+    if (soloDeudores) {
+      clientes = clientes.filter(c => c.saldoAPagar > 0);
+    }
+    
+    clientes.sort((a, b) => b.saldoAPagar - a.saldoAPagar);
     
     return NextResponse.json(clientes);
   } catch (error) {

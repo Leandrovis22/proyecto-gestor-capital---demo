@@ -1,6 +1,5 @@
-'use client';
+﻿'use client';
 
-import { authFetch } from '@/lib/auth';
 import { useEffect, useState, Fragment } from 'react';
 
 interface Venta {
@@ -40,12 +39,12 @@ export default function VentasView({ refreshKey }: VentasViewProps) {
   const fetchData = async () => {
     try {
       // Fetch ventas
-      const ventasRes = await authFetch('/api/ventas');
+      const ventasRes = await fetch('/api/ventas');
       const ventasData = await ventasRes.json();
       setVentas(ventasData);
 
       // Fetch clientes para nombres
-      const clientesRes = await authFetch('/api/clientes');
+      const clientesRes = await fetch('/api/clientes');
       const clientesData = await clientesRes.json();
       const clientesMap = new Map<string, Cliente>(clientesData.map((c: Cliente) => [c.id, c]));
       setClientes(clientesMap);

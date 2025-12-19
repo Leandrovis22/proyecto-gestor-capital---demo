@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, Fragment } from 'react';
-import { authFetch } from '@/lib/auth';
 
 
 interface Inversion {
@@ -10,7 +9,7 @@ interface Inversion {
   monto: string;
   fecha: string;
   createdAt: string;
-  confirmado?: boolean;
+  confirmada?: boolean;
 }
 
 interface InversionesManagerProps {
@@ -34,7 +33,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
     const day = String(hoy.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   });
-  const [confirmado, setConfirmado] = useState(true);
+  const [confirmada, setConfirmada] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,7 +46,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
 
   const fetchInversiones = async () => {
     try {
-      const response = await authFetch('/api/inversiones');
+      const response = await fetch('/api/inversiones');
       const data = await response.json();
       const inversionesOrdenadas = Array.isArray(data) 
         ? data.sort((a, b) => {
@@ -76,7 +75,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
     });
     setIsAdding(false);
     setEditingId(null);
-    setConfirmado(true);
+    setConfirmada(true);
   };
 
   const handleSubmit = async () => {
@@ -90,10 +89,10 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
       const url = editingId ? `/api/inversiones/${editingId}` : '/api/inversiones';
       const method = editingId ? 'PUT' : 'POST';
       const fechaISO = `${fecha}T12:00:00.000Z`;
-      const response = await authFetch(url, {
+      const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmado }),
+        body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmada }),
       });
       if (response.ok) {
         resetForm();
@@ -113,7 +112,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
     setDescripcion(inversion.descripcion);
     setMonto(inversion.monto);
     setFecha(new Date(inversion.fecha).toISOString().split('T')[0]);
-    setConfirmado((inversion as any).confirmado ?? true);
+    setConfirmada(inversion.confirmada ?? true);
     setEditingId(inversion.id);
     setIsAdding(true);
   };
@@ -121,10 +120,15 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   const handleToggleConfirmado = async (inversion: Inversion) => {
     setActionLoading(true);
     try {
-      const response = await authFetch(`/api/inversiones/${inversion.id}`, {
+      const response = await fetch(`/api/inversiones/${inversion.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...inversion, monto: parseFloat(inversion.monto), confirmado: !(inversion as any).confirmado }),
+        body: JSON.stringify({ 
+          fecha: inversion.fecha,
+          descripcion: inversion.descripcion,
+          monto: parseFloat(inversion.monto), 
+          confirmada: !inversion.confirmada 
+        }),
       });
       if (response.ok) fetchInversiones(); else alert('Error al actualizar inversión');
     } catch (error) {
@@ -140,7 +144,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
 
     setActionLoading(true);
     try {
-      const response = await authFetch(`/api/inversiones/${id}`, {
+      const response = await fetch(`/api/inversiones/${id}`, {
         method: 'DELETE',
       });
 
@@ -288,16 +292,16 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
               </div>
               <button
                 type="button"
-                onClick={() => setConfirmado(c => !c)}
+                onClick={() => setConfirmada(c => !c)}
                 className={`flex items-center gap-4 w-full p-4 rounded-lg border transition-colors select-none focus:outline-none focus:ring-2 focus:ring-indigo-400 font-medium text-base
-                  ${confirmado ? 'bg-green-50 border-green-400 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100'}`}
-                aria-pressed={confirmado}
+                  ${confirmada ? 'bg-green-50 border-green-400 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100'}`}
+                aria-pressed={confirmada}
               >
-                <span className={`flex items-center justify-center rounded-full border-2 ${confirmado ? 'border-green-500 bg-green-500' : 'border-blue-300 bg-white'} w-10 h-10 text-2xl transition-all`}>
-                  {confirmado ? '✅' : ''}
+                <span className={`flex items-center justify-center rounded-full border-2 ${confirmada ? 'border-green-500 bg-green-500' : 'border-blue-300 bg-white'} w-10 h-10 text-2xl transition-all`}>
+                  {confirmada ? '✅' : ''}
                 </span>
                 <span className="flex-1 text-left">
-                  {confirmado
+                  {confirmada
                     ? 'Inversión confirmada (se contabiliza)'
                     : 'Inversión por confirmar (no se contabiliza aún)'}
                 </span>
@@ -364,10 +368,10 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
                           <td className="px-6 py-4 text-sm text-gray-600 font-semibold whitespace-nowrap">{formatDate(inversion.fecha)}</td>
                           <td className="px-6 py-4 text-sm font-semibold text-gray-900">{inversion.descripcion}</td>
                           <td className="px-6 py-4 text-sm font-bold text-indigo-600 whitespace-nowrap">{formatMoney(inversion.monto)}</td>
-                          <td className="px-6 py-4">{!(inversion as any).confirmado ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</td>
+                          <td className="px-6 py-4">{!inversion.confirmada ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex gap-2 justify-end">
-                              <button onClick={() => handleToggleConfirmado(inversion)} className={`px-3 py-1.5 rounded-lg font-semibold transition-all duration-200 shadow-sm text-sm ${ (inversion as any).confirmado ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`} title={(inversion as any).confirmado ? 'Desconfirmar' : 'Confirmar'}>{(inversion as any).confirmado ? '⏸️' : '✅'}</button>
+                              <button onClick={() => handleToggleConfirmado(inversion)} className={`px-3 py-1.5 rounded-lg font-semibold transition-all duration-200 shadow-sm text-sm ${ inversion.confirmada ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`} title={inversion.confirmada ? 'Desconfirmar' : 'Confirmar'}>{inversion.confirmada ? '⏸️' : '✅'}</button>
                               <button onClick={() => handleEdit(inversion)} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm" title="Editar">✏️</button>
                               <button onClick={() => handleDelete(inversion.id)} disabled={actionLoading} className={`px-3 py-1.5 ${actionLoading ? 'bg-gray-400' : 'bg-red-100'} text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200 font-semibold shadow-sm hover:shadow-md text-sm`} title="Eliminar">{actionLoading ? 'Cargando...' : '🗑️'}</button>
                             </div>
@@ -407,9 +411,9 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
                           </div>
                         </div>
                         <div className="mt-1 flex items-center justify-between">
-                          <div>{!(inversion as any).confirmado ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</div>
+                          <div>{!inversion.confirmada ? (<span className="inline-flex items-center px-3 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full font-semibold">Por confirmar</span>) : (<span className="inline-flex items-center px-3 py-1 text-xs bg-green-200 text-green-800 rounded-full font-semibold">Confirmado</span>)}</div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => handleToggleConfirmado(inversion)} className="px-2 py-1 rounded-lg text-sm bg-gray-100 hover:bg-gray-200" title={(inversion as any).confirmado ? 'Desconfirmar' : 'Confirmar'}>{(inversion as any).confirmado ? '⏸️' : '✅'}</button>
+                            <button onClick={() => handleToggleConfirmado(inversion)} className="px-2 py-1 rounded-lg text-sm bg-gray-100 hover:bg-gray-200" title={inversion.confirmada ? 'Desconfirmar' : 'Confirmar'}>{inversion.confirmada ? '⏸️' : '✅'}</button>
                             <button onClick={() => handleEdit(inversion)} className="px-2 py-1 rounded-lg text-sm bg-blue-100 hover:bg-blue-200">✏️</button>
                             <button onClick={() => handleDelete(inversion.id)} disabled={actionLoading} className="px-2 py-1 rounded-lg text-sm bg-red-100 hover:bg-red-200">{actionLoading ? '...' : '🗑️'}</button>
                           </div>

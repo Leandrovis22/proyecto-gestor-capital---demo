@@ -1,6 +1,5 @@
-'use client';
+﻿'use client';
 
-import { authFetch } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 
 interface Cliente {
@@ -31,7 +30,7 @@ export default function DeudoresView({ refreshKey }: DeudoresViewProps) {
 
   const fetchClientes = async () => {
     try {
-      const response = await authFetch('/api/clientes');
+      const response = await fetch('/api/clientes');
       const data = await response.json();
       
       // Guardar todos los clientes
