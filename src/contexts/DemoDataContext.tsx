@@ -126,15 +126,15 @@ function generarDatosIniciales() {
   
   const pagos: Pago[] = [];
   const tiposPago = ['Efectivo', 'Transferencia a Jefe', 'Transferencia a Empleado', 'Tarjeta'];
-  const ahora = new Date();
+  const ahoraInicial = new Date();
   ventas.forEach(venta => {
     if (Math.random() > 0.3) {
       const fechaPago = new Date(venta.fechaVenta);
       fechaPago.setHours(fechaPago.getHours() + Math.floor(Math.random() * 24));
       
       // Asegurar que la fecha del pago no sea futura
-      if (fechaPago > ahora) {
-        fechaPago.setTime(ahora.getTime() - Math.floor(Math.random() * 3600000)); // Restar hasta 1 hora
+      if (fechaPago > ahoraInicial) {
+        fechaPago.setTime(ahoraInicial.getTime() - Math.floor(Math.random() * 3600000)); // Restar hasta 1 hora
       }
       
       pagos.push({
@@ -151,12 +151,12 @@ function generarDatosIniciales() {
   // Pagos del día actual
   for (let i = 0; i < 3; i++) {
     const clienteAleatorio = clientes[Math.floor(Math.random() * clientes.length)];
-    const ahora = new Date();
-    ahora.setHours(9 + i * 2, Math.floor(Math.random() * 60));
+    const fechaPagoHoy = new Date();
+    fechaPagoHoy.setHours(9 + i * 2, Math.floor(Math.random() * 60));
     pagos.push({
       id: generateId(),
       clienteId: clienteAleatorio.id,
-      fechaPago: ahora.toISOString(),
+      fechaPago: fechaPagoHoy.toISOString(),
       monto: Math.floor(Math.random() * 30000) + 10000,
       tipoPago: tiposPago[Math.floor(Math.random() * tiposPago.length)],
       confirmado: true
@@ -201,15 +201,15 @@ function generarDatosIniciales() {
   
   // Gastos del día actual
   for (let i = 0; i < 2; i++) {
-    const ahora = new Date();
-    ahora.setHours(11 + i * 3, Math.floor(Math.random() * 60));
+    const fechaGastoHoy = new Date();
+    fechaGastoHoy.setHours(11 + i * 3, Math.floor(Math.random() * 60));
     gastos.push({
       id: generateId(),
-      fecha: ahora.toISOString(),
+      fecha: fechaGastoHoy.toISOString(),
       descripcion: tiposGasto[Math.floor(Math.random() * tiposGasto.length)],
       monto: Math.floor(Math.random() * 5000) + 500,
       confirmado: true,
-      createdAt: ahora.toISOString()
+      createdAt: fechaGastoHoy.toISOString()
     });
   }
   
@@ -230,15 +230,15 @@ function generarDatosIniciales() {
   }
   
   // Inversión del día actual
-  const ahora = new Date();
-  ahora.setHours(13, Math.floor(Math.random() * 60));
+  const fechaInversionHoy = new Date();
+  fechaInversionHoy.setHours(13, Math.floor(Math.random() * 60));
   inversiones.push({
     id: generateId(),
-    fecha: ahora.toISOString(),
+    fecha: fechaInversionHoy.toISOString(),
     descripcion: tiposInversion[Math.floor(Math.random() * tiposInversion.length)],
     monto: Math.floor(Math.random() * 50000) + 20000,
     confirmada: true,
-    createdAt: ahora.toISOString()
+    createdAt: fechaInversionHoy.toISOString()
   });
   
   return { clientes, ventas, pagos, gastos, inversiones, nextId };
