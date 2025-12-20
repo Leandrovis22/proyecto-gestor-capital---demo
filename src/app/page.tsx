@@ -19,7 +19,6 @@ export default function Home() {
   useEffect(() => {
     // Establecer fecha de actualización inicial
     setLastUpdate(new Date().toISOString());
-
   }, []);
 
   const handleUpdateFromDashboard = (fecha: string) => {

@@ -814,7 +814,7 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
                 Total de pagos del periodo {rangoFechas}
               </h3>
               <p className="text-2xl sm:text-3xl font-bold text-indigo-700">
-                {formatMoney((stats.totalOsvaldo + stats.totalNoe + stats.totalEfectivo + stats.totalOtros).toString())}
+                {formatMoney((stats.totalJefe + stats.totalEmpleado + stats.totalEfectivo + stats.totalOtros).toString())}
               </p>
               <div className="mt-2">
                 <span className="inline-flex items-center px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold">

@@ -1,11 +1,12 @@
 ﻿'use client';
 
 import { useEffect, useState, Fragment } from 'react';
+import { useDemoData } from '@/contexts/DemoDataContext';
 
 interface Gasto {
     id: string;
     descripcion: string;
-    monto: string;
+    monto: number;
     fecha: string;
     confirmado: boolean;
     createdAt: string;
@@ -16,8 +17,8 @@ interface Gasto {
   }
 
   export default function GastosManager({ refreshKey }: GastosManagerProps) {
-    const [gastos, setGastos] = useState<Gasto[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { gastos, addGasto, updateGasto, deleteGasto } = useDemoData();
+    const [loading, setLoading] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [filtro, setFiltro] = useState<'todos' | 'semana' | 'mes'>('todos');
@@ -34,33 +35,7 @@ interface Gasto {
     const [confirmado, setConfirmado] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        fetchGastos();
-      }, 100);
-
-      return () => clearTimeout(timer);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshKey]);
-
-    const fetchGastos = async () => {
-      try {
-        const response = await fetch('/api/gastos');
-        const data = await response.json();
-        const gastosOrdenados = Array.isArray(data)
-          ? data.sort((a, b) => {
-              const fechaCompare = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
-              if (fechaCompare !== 0) return fechaCompare;
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            })
-          : [];
-        setGastos(gastosOrdenados);
-      } catch (error) {
-        console.error('Error fetching gastos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Ya no necesitamos fetchGastos ni useEffect porque los gastos vienen del contexto
 
     const resetForm = () => {
       setDescripcion('');
@@ -85,23 +60,14 @@ interface Gasto {
 
       setActionLoading(true);
       try {
-        const url = editingId ? `/api/gastos/${editingId}` : '/api/gastos';
-        const method = editingId ? 'PUT' : 'POST';
-
         const fechaISO = `${fecha}T12:00:00.000Z`;
 
-        const response = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmado }),
-        });
-
-        if (response.ok) {
-          resetForm();
-          fetchGastos();
+        if (editingId) {
+          updateGasto(editingId, { descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmado });
         } else {
-          alert('Error al guardar gasto');
+          addGasto({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmado });
         }
+        resetForm();
       } catch (error) {
         console.error('Error:', error);
         alert('Error al guardar gasto');
@@ -112,7 +78,7 @@ interface Gasto {
 
     const handleEdit = (gasto: Gasto) => {
       setDescripcion(gasto.descripcion);
-      setMonto(gasto.monto);
+      setMonto(gasto.monto.toString());
       setFecha(new Date(gasto.fecha).toISOString().split('T')[0]);
       setConfirmado(gasto.confirmado);
       setEditingId(gasto.id);
@@ -124,8 +90,7 @@ interface Gasto {
 
       setActionLoading(true);
       try {
-        const response = await fetch(`/api/gastos/${id}`, { method: 'DELETE' });
-        if (response.ok) fetchGastos(); else alert('Error al eliminar gasto');
+        deleteGasto(id);
       } catch (error) {
         console.error('Error:', error);
         alert('Error al eliminar gasto');
@@ -137,17 +102,12 @@ interface Gasto {
     const handleToggleConfirmado = async (gasto: Gasto) => {
       setActionLoading(true);
       try {
-        const response = await fetch(`/api/gastos/${gasto.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            fecha: gasto.fecha,
-            descripcion: gasto.descripcion,
-            monto: parseFloat(gasto.monto), 
-            confirmado: !gasto.confirmado 
-          }),
+        updateGasto(gasto.id, { 
+          fecha: gasto.fecha,
+          descripcion: gasto.descripcion,
+          monto: gasto.monto, 
+          confirmado: !gasto.confirmado 
         });
-        if (response.ok) fetchGastos(); else alert('Error al actualizar gasto');
       } catch (error) {
         console.error('Error:', error);
         alert('Error al actualizar gasto');
@@ -156,8 +116,8 @@ interface Gasto {
       }
     };
 
-    const formatMoney = (value: string) => {
-      return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(parseFloat(value));
+    const formatMoney = (value: string | number) => {
+      return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(typeof value === 'string' ? parseFloat(value) : value);
     };
 
     const formatDate = (dateString: string) => {
@@ -166,25 +126,32 @@ interface Gasto {
 
     const filtrarGastos = () => {
       const ahora = new Date();
+      let gastosFiltrados = gastos;
+      
       if (filtro === 'semana') {
         const inicioSemana = new Date(ahora);
         const dia = inicioSemana.getDay();
         const diff = dia === 0 ? -6 : 1 - dia;
         inicioSemana.setDate(inicioSemana.getDate() + diff);
         inicioSemana.setHours(0, 0, 0, 0);
-        return gastos.filter(g => new Date(g.fecha) >= inicioSemana);
-      }
-      if (filtro === 'mes') {
+        gastosFiltrados = gastos.filter(g => new Date(g.fecha) >= inicioSemana);
+      } else if (filtro === 'mes') {
         const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-        return gastos.filter(g => new Date(g.fecha) >= inicioMes);
+        gastosFiltrados = gastos.filter(g => new Date(g.fecha) >= inicioMes);
       }
-      return gastos;
+      
+      // Ordenar por fecha descendente
+      return gastosFiltrados.sort((a, b) => {
+        const fechaCompare = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+        if (fechaCompare !== 0) return fechaCompare;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
     };
 
     const gastosFiltrados = filtrarGastos();
 
-    const totalConfirmados = gastosFiltrados.filter(g => g.confirmado).reduce((s, g) => s + parseFloat(g.monto), 0);
-    const totalPorConfirmar = gastosFiltrados.filter(g => !g.confirmado).reduce((s, g) => s + parseFloat(g.monto), 0);
+    const totalConfirmados = gastosFiltrados.filter(g => g.confirmado).reduce((s, g) => s + g.monto, 0);
+    const totalPorConfirmar = gastosFiltrados.filter(g => !g.confirmado).reduce((s, g) => s + g.monto, 0);
 
     // Calcular gastos de hoy
     const hoy = new Date();
@@ -196,7 +163,7 @@ interface Gasto {
       const fechaGasto = new Date(g.fecha);
       return fechaGasto >= hoy && fechaGasto < manana;
     });
-    const totalGastosHoy = gastosHoy.filter(g => g.confirmado).reduce((s, g) => s + parseFloat(g.monto), 0);
+    const totalGastosHoy = gastosHoy.filter(g => g.confirmado).reduce((s, g) => s + g.monto, 0);
 
     if (loading) return (
       <div className="flex flex-col justify-center items-center py-20">

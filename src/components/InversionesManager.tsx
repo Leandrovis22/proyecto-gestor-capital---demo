@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState, Fragment, useMemo } from 'react';
+import { useDemoData } from '@/contexts/DemoDataContext';
 
 
 interface Inversion {
@@ -17,8 +18,15 @@ interface InversionesManagerProps {
 }
 
 export default function InversionesManager({ refreshKey }: InversionesManagerProps) {
-  const [inversiones, setInversiones] = useState<Inversion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { inversiones: inversionesRaw, addInversion, updateInversion, deleteInversion } = useDemoData();
+  
+  // Memorizar la conversión para evitar re-renders infinitos
+  const inversiones = useMemo(() => 
+    inversionesRaw.map(i => ({ ...i, monto: i.monto.toString() })),
+    [inversionesRaw]
+  );
+  
+  const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'semana' | 'mes'>('todos');
@@ -35,44 +43,16 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   });
   const [confirmada, setConfirmada] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchInversiones();
-    }, 100);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  const fetchInversiones = async () => {
-    try {
-      const response = await fetch('/api/inversiones');
-      const data = await response.json();
-      const inversionesOrdenadas = Array.isArray(data) 
-        ? data.sort((a, b) => {
-            const fechaCompare = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
-            if (fechaCompare !== 0) return fechaCompare;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          })
-        : [];
-      setInversiones(inversionesOrdenadas);
-    } catch (error) {
-      console.error('Error fetching inversiones:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Ya no necesitamos fetchInversiones ni useEffect porque las inversiones vienen del contexto
 
   const resetForm = () => {
     setDescripcion('');
     setMonto('');
-    setFecha(() => {
-      const hoy = new Date();
-      const year = hoy.getFullYear();
-      const month = String(hoy.getMonth() + 1).padStart(2, '0');
-      const day = String(hoy.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    });
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, '0');
+    const day = String(hoy.getDate()).padStart(2, '0');
+    setFecha(`${year}-${month}-${day}`);
     setIsAdding(false);
     setEditingId(null);
     setConfirmada(true);
@@ -86,23 +66,18 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
 
     setActionLoading(true);
     try {
-      const url = editingId ? `/api/inversiones/${editingId}` : '/api/inversiones';
-      const method = editingId ? 'PUT' : 'POST';
       const fechaISO = `${fecha}T12:00:00.000Z`;
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmada }),
-      });
-      if (response.ok) {
-        resetForm();
-        fetchInversiones();
+      
+      if (editingId) {
+        updateInversion(editingId, { descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmada });
       } else {
-        alert('Error al guardar inversión');
+        addInversion({ descripcion, monto: parseFloat(monto), fecha: fechaISO, confirmada });
       }
+      
+      resetForm();
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al guardar inversión');
+      alert('Error al procesar inversión');
     } finally {
       setActionLoading(false);
     }
@@ -120,17 +95,12 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
   const handleToggleConfirmado = async (inversion: Inversion) => {
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/inversiones/${inversion.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          fecha: inversion.fecha,
-          descripcion: inversion.descripcion,
-          monto: parseFloat(inversion.monto), 
-          confirmada: !inversion.confirmada 
-        }),
+      updateInversion(inversion.id, { 
+        fecha: inversion.fecha,
+        descripcion: inversion.descripcion,
+        monto: parseFloat(inversion.monto), 
+        confirmada: !inversion.confirmada 
       });
-      if (response.ok) fetchInversiones(); else alert('Error al actualizar inversión');
     } catch (error) {
       console.error('Error:', error);
       alert('Error al actualizar inversión');
@@ -144,15 +114,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/inversiones/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchInversiones();
-      } else {
-        alert('Error al eliminar inversión');
-      }
+      deleteInversion(id);
     } catch (error) {
       console.error('Error:', error);
       alert('Error al eliminar inversión');
@@ -179,6 +141,7 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
 
   const filtrarInversiones = () => {
     const ahora = new Date();
+    let inversionesFiltradas = inversiones;
     
     if (filtro === 'semana') {
       const inicioSemana = new Date(ahora);
@@ -187,15 +150,18 @@ export default function InversionesManager({ refreshKey }: InversionesManagerPro
       inicioSemana.setDate(inicioSemana.getDate() + diff);
       inicioSemana.setHours(0, 0, 0, 0);
       
-      return inversiones.filter(inv => new Date(inv.fecha) >= inicioSemana);
-    }
-    
-    if (filtro === 'mes') {
+      inversionesFiltradas = inversiones.filter(inv => new Date(inv.fecha) >= inicioSemana);
+    } else if (filtro === 'mes') {
       const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-      return inversiones.filter(inv => new Date(inv.fecha) >= inicioMes);
+      inversionesFiltradas = inversiones.filter(inv => new Date(inv.fecha) >= inicioMes);
     }
     
-    return inversiones;
+    // Ordenar por fecha descendente
+    return inversionesFiltradas.sort((a, b) => {
+      const fechaCompare = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+      if (fechaCompare !== 0) return fechaCompare;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   };
 
   const inversionesFiltradas = filtrarInversiones();

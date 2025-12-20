@@ -50,6 +50,11 @@ function generateId() {
   return `demo-${nextId++}`;
 }
 
+// Control de reseteo automático: resetear datos cada 5 minutos de inactividad
+let ultimoAcceso = Date.now();
+const TIEMPO_RESET_MS = 5 * 60 * 1000; // 5 minutos
+let sesionActiva = false; // Flag para controlar si hay una sesión activa
+
 // Función para formatear tipo de pago para mostrar en tablas
 export function formatTipoPago(tipoPago: string): string {
   if (tipoPago.toLowerCase().includes('jefe')) return 'Jefe';
@@ -287,6 +292,44 @@ for (let i = 0; i < 1; i++) {
   });
 }
 
+// Guardar copias iniciales de todos los datos para poder resetear
+const clientesIniciales = JSON.parse(JSON.stringify(clientes));
+const ventasIniciales = JSON.parse(JSON.stringify(ventas));
+const pagosIniciales = JSON.parse(JSON.stringify(pagos));
+const gastosIniciales = JSON.parse(JSON.stringify(gastos));
+const inversionesIniciales = JSON.parse(JSON.stringify(inversiones));
+
+// Función para resetear todos los datos a su estado inicial
+function resetearDatos() {
+  // Vaciar arrays y rellenarlos con datos iniciales (mutar en lugar de reasignar)
+  clientes.splice(0, clientes.length, ...JSON.parse(JSON.stringify(clientesIniciales)));
+  ventas.splice(0, ventas.length, ...JSON.parse(JSON.stringify(ventasIniciales)));
+  pagos.splice(0, pagos.length, ...JSON.parse(JSON.stringify(pagosIniciales)));
+  gastos.splice(0, gastos.length, ...JSON.parse(JSON.stringify(gastosIniciales)));
+  inversiones.splice(0, inversiones.length, ...JSON.parse(JSON.stringify(inversionesIniciales)));
+  // Resetear el contador de IDs
+  nextId = 1000;
+}
+
+// Exportar función para reseteo manual
+export function resetearDatosManual() {
+  resetearDatos();
+  ultimoAcceso = Date.now();
+}
+
+// Función para verificar si necesita resetear por inactividad
+function verificarYResetear() {
+  const ahora = Date.now();
+  
+  // Si no hay sesión activa o han pasado más de 5 minutos, resetear
+  if (!sesionActiva || ahora - ultimoAcceso > TIEMPO_RESET_MS) {
+    resetearDatos();
+    sesionActiva = true;
+  }
+  
+  ultimoAcceso = ahora;
+}
+
 // Funciones CRUD para clientes
 export function getClientes(): Cliente[] {
   return clientes;
@@ -362,6 +405,7 @@ export function deletePago(id: string): boolean {
 
 // Funciones CRUD para gastos
 export function getGastos(): Gasto[] {
+  verificarYResetear();
   return gastos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 }
 
@@ -391,6 +435,7 @@ export function deleteGasto(id: string): boolean {
 
 // Funciones CRUD para inversiones
 export function getInversiones(): Inversion[] {
+  verificarYResetear();
   return inversiones.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 }
 
@@ -443,6 +488,7 @@ function recalcularSaldos() {
 
 // Función para obtener estadísticas del dashboard
 export function getDashboardData() {
+  verificarYResetear();
   const ahora = new Date();
   
   // Fecha de inicio para cálculos (04/11/2025)
