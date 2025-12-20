@@ -126,10 +126,17 @@ function generarDatosIniciales() {
   
   const pagos: Pago[] = [];
   const tiposPago = ['Efectivo', 'Transferencia a Jefe', 'Transferencia a Empleado', 'Tarjeta'];
+  const ahora = new Date();
   ventas.forEach(venta => {
     if (Math.random() > 0.3) {
       const fechaPago = new Date(venta.fechaVenta);
       fechaPago.setHours(fechaPago.getHours() + Math.floor(Math.random() * 24));
+      
+      // Asegurar que la fecha del pago no sea futura
+      if (fechaPago > ahora) {
+        fechaPago.setTime(ahora.getTime() - Math.floor(Math.random() * 3600000)); // Restar hasta 1 hora
+      }
+      
       pagos.push({
         id: generateId(),
         clienteId: venta.clienteId,
