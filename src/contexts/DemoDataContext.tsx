@@ -68,9 +68,27 @@ function generarDatosIniciales() {
   let nextId = 1000;
   const generateId = () => `demo-${nextId++}`;
   
+  // Función helper para convertir fecha local a ISO string (sin timezone para evitar conversiones)
+  const toLocalISOString = (fecha: Date): string => {
+    const year = fecha.getFullYear();
+    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+    const day = String(fecha.getDate()).padStart(2, '0');
+    const hours = String(fecha.getHours()).padStart(2, '0');
+    const minutes = String(fecha.getMinutes()).padStart(2, '0');
+    const seconds = String(fecha.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+  };
+  
   const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  
+  // TODAS las transacciones serán de hace 3 a 20 días (con margen de seguridad para evitar fechas futuras)
   const fechaInicio = new Date(hoy);
-  fechaInicio.setDate(fechaInicio.getDate() - 17);
+  fechaInicio.setDate(fechaInicio.getDate() - 20); // Hace 20 días
+  
+  const fechaFin = new Date(hoy);
+  fechaFin.setDate(fechaFin.getDate() - 3); // Hace 3 días (margen de seguridad)
+  fechaFin.setHours(23, 59, 59, 999);
   
   const nombresClientes = [
     'María González', 'Juan Pérez', 'Ana Martínez', 'Carlos Rodríguez', 'Laura Fernández',
@@ -86,22 +104,31 @@ function generarDatosIniciales() {
       id: `cliente-${index + 1}`,
       nombre,
       saldoAPagar: 0,
-      ultimaModificacion: fecha.toISOString()
+      ultimaModificacion: toLocalISOString(fecha)
     };
   });
   
   const ventas: Venta[] = [];
-  for (let dia = 0; dia < 17; dia++) {
+  
+  // Generar ventas entre fechaInicio y fechaFin (hace 20 a 3 días)
+  const diasHistoria = 17;
+  for (let dia = 0; dia < diasHistoria; dia++) {
     const ventasPorDia = Math.floor(Math.random() * 2) + 2;
     for (let i = 0; i < ventasPorDia; i++) {
       const fechaVenta = new Date(fechaInicio);
       fechaVenta.setDate(fechaVenta.getDate() + dia);
-      fechaVenta.setHours(9 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+      fechaVenta.setHours(9 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0);
+      
+      // Validar que la venta esté dentro del rango permitido
+      if (fechaVenta > fechaFin) {
+        continue; // Saltar esta venta si está fuera del rango
+      }
+      
       const clienteAleatorio = clientes[Math.floor(Math.random() * clientes.length)];
       ventas.push({
         id: generateId(),
         clienteId: clienteAleatorio.id,
-        fechaVenta: fechaVenta.toISOString(),
+        fechaVenta: toLocalISOString(fechaVenta),
         totalVenta: Math.floor(Math.random() * 50000) + 10000,
         medioPago: ['Efectivo', 'Transferencia', 'Tarjeta'][Math.floor(Math.random() * 3)],
         confirmada: true
@@ -109,38 +136,35 @@ function generarDatosIniciales() {
     }
   }
   
-  // Ventas del día actual
-  for (let i = 0; i < 3; i++) {
-    const clienteAleatorio = clientes[Math.floor(Math.random() * clientes.length)];
-    const ahora = new Date();
-    ahora.setHours(10 + i * 2, Math.floor(Math.random() * 60));
-    ventas.push({
-      id: generateId(),
-      clienteId: clienteAleatorio.id,
-      fechaVenta: ahora.toISOString(),
-      totalVenta: Math.floor(Math.random() * 50000) + 10000,
-      medioPago: ['Efectivo', 'Transferencia', 'Tarjeta'][Math.floor(Math.random() * 3)],
-      confirmada: true
-    });
-  }
-  
   const pagos: Pago[] = [];
   const tiposPago = ['Efectivo', 'Transferencia a Jefe', 'Transferencia a Empleado', 'Tarjeta'];
-  const ahoraInicial = new Date();
+  
   ventas.forEach(venta => {
     if (Math.random() > 0.3) {
-      const fechaPago = new Date(venta.fechaVenta);
-      fechaPago.setHours(fechaPago.getHours() + Math.floor(Math.random() * 24));
+      const fechaVenta = new Date(venta.fechaVenta);
       
-      // Asegurar que la fecha del pago no sea futura
-      if (fechaPago > ahoraInicial) {
-        fechaPago.setTime(ahoraInicial.getTime() - Math.floor(Math.random() * 3600000)); // Restar hasta 1 hora
+      // Generar fecha de pago entre la venta y fechaFin (máximo hace 3 días)
+      const tiempoVenta = fechaVenta.getTime();
+      const tiempoFin = fechaFin.getTime();
+      const rangoTiempo = Math.max(0, tiempoFin - tiempoVenta);
+      
+      if (rangoTiempo <= 0) {
+        return; // No crear pago si no hay rango válido
+      }
+      
+      // Generar un tiempo aleatorio entre la venta y fechaFin
+      const tiempoAleatorio = tiempoVenta + Math.floor(Math.random() * rangoTiempo);
+      const fechaPago = new Date(tiempoAleatorio);
+      
+      // Validación: asegurar que el pago no exceda HOY
+      if (fechaPago > hoy) {
+        return; // No agregar este pago si es futuro
       }
       
       pagos.push({
         id: generateId(),
         clienteId: venta.clienteId,
-        fechaPago: fechaPago.toISOString(),
+        fechaPago: toLocalISOString(fechaPago),
         monto: Math.floor(venta.totalVenta * (0.3 + Math.random() * 0.5)),
         tipoPago: tiposPago[Math.floor(Math.random() * tiposPago.length)],
         confirmado: true
@@ -148,20 +172,7 @@ function generarDatosIniciales() {
     }
   });
   
-  // Pagos del día actual
-  for (let i = 0; i < 3; i++) {
-    const clienteAleatorio = clientes[Math.floor(Math.random() * clientes.length)];
-    const fechaPagoHoy = new Date();
-    fechaPagoHoy.setHours(9 + i * 2, Math.floor(Math.random() * 60));
-    pagos.push({
-      id: generateId(),
-      clienteId: clienteAleatorio.id,
-      fechaPago: fechaPagoHoy.toISOString(),
-      monto: Math.floor(Math.random() * 30000) + 10000,
-      tipoPago: tiposPago[Math.floor(Math.random() * tiposPago.length)],
-      confirmado: true
-    });
-  }
+  // NO generar pagos del día actual - TODAS las transacciones son históricas
   
   // Calcular saldos
   clientes.forEach(cliente => {
@@ -176,7 +187,7 @@ function generarDatosIniciales() {
     const todasFechas = [...fechasVentas, ...fechasPagos];
     if (todasFechas.length > 0) {
       const fechaMasReciente = new Date(Math.max(...todasFechas.map(f => f.getTime())));
-      cliente.ultimaModificacion = fechaMasReciente.toISOString();
+      cliente.ultimaModificacion = toLocalISOString(fechaMasReciente);
     }
   });
   
@@ -187,59 +198,49 @@ function generarDatosIniciales() {
     for (let i = 0; i < gastosPorDia; i++) {
       const fechaGasto = new Date(fechaInicio);
       fechaGasto.setDate(fechaGasto.getDate() + dia);
-      fechaGasto.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60));
+      fechaGasto.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), 0, 0);
+      
+      // Validar que esté dentro del rango permitido
+      if (fechaGasto > fechaFin) {
+        continue;
+      }
+      
       gastos.push({
         id: generateId(),
-        fecha: fechaGasto.toISOString(),
+        fecha: toLocalISOString(fechaGasto),
         descripcion: tiposGasto[Math.floor(Math.random() * tiposGasto.length)],
         monto: Math.floor(Math.random() * 5000) + 500,
         confirmado: true,
-        createdAt: fechaGasto.toISOString()
+        createdAt: toLocalISOString(fechaGasto)
       });
     }
   }
   
-  // Gastos del día actual
-  for (let i = 0; i < 2; i++) {
-    const fechaGastoHoy = new Date();
-    fechaGastoHoy.setHours(11 + i * 3, Math.floor(Math.random() * 60));
-    gastos.push({
-      id: generateId(),
-      fecha: fechaGastoHoy.toISOString(),
-      descripcion: tiposGasto[Math.floor(Math.random() * tiposGasto.length)],
-      monto: Math.floor(Math.random() * 5000) + 500,
-      confirmado: true,
-      createdAt: fechaGastoHoy.toISOString()
-    });
-  }
+  // NO generar gastos del día actual - TODAS las transacciones son históricas
   
   const inversiones: Inversion[] = [];
   const tiposInversion = ['Compra de mercadería', 'Equipo nuevo', 'Ampliación de stock', 'Marketing digital', 'Renovación de local'];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const fechaInversion = new Date(fechaInicio);
-    fechaInversion.setDate(fechaInversion.getDate() + Math.floor(Math.random() * 17));
-    fechaInversion.setHours(11 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 60));
+    fechaInversion.setDate(fechaInversion.getDate() + Math.floor(Math.random() * diasHistoria));
+    fechaInversion.setHours(11 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 60), 0, 0);
+    
+    // Validar que esté dentro del rango permitido
+    if (fechaInversion > fechaFin) {
+      continue;
+    }
+    
     inversiones.push({
       id: generateId(),
-      fecha: fechaInversion.toISOString(),
-      descripcion: tiposInversion[i],
+      fecha: toLocalISOString(fechaInversion),
+      descripcion: tiposInversion[i % tiposInversion.length],
       monto: Math.floor(Math.random() * 50000) + 20000,
       confirmada: true,
-      createdAt: fechaInversion.toISOString()
+      createdAt: toLocalISOString(fechaInversion)
     });
   }
   
-  // Inversión del día actual
-  const fechaInversionHoy = new Date();
-  fechaInversionHoy.setHours(13, Math.floor(Math.random() * 60));
-  inversiones.push({
-    id: generateId(),
-    fecha: fechaInversionHoy.toISOString(),
-    descripcion: tiposInversion[Math.floor(Math.random() * tiposInversion.length)],
-    monto: Math.floor(Math.random() * 50000) + 20000,
-    confirmada: true,
-    createdAt: fechaInversionHoy.toISOString()
-  });
+  // NO generar inversión del día actual - TODAS las transacciones son históricas
   
   return { clientes, ventas, pagos, gastos, inversiones, nextId };
 }

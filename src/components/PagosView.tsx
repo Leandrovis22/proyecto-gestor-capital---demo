@@ -109,18 +109,18 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   };
 
   const formatDate = (dateString: string) => {
-    // Extraer solo la parte de fecha en UTC sin conversión de zona horaria
+    // Usar fecha local sin conversión UTC
     const date = new Date(dateString);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     return `${day}/${month}/${year}`;
   };
 
   const parseDateUTC = (dateString: string) => {
-    // Parsear fecha ignorando zona horaria, tratarla como está
+    // Parsear fecha usando valores locales
     const date = new Date(dateString);
-    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   };
 
   const calcularEstadisticasPeriodo = () => {
@@ -292,7 +292,10 @@ export default function PagosView({ refreshKey }: PagosViewProps) {
   // semanasMostrar semanas (cada semana = 7 días). Restamos (days - 1) para incluir hoy.
   const diasMostrar = semanasMostrar * 7;
   fechaRegistroInicio.setDate(hoyRegistro.getDate() - (diasMostrar - 1));
-  const pagosRegistro = pagos.filter(p => parseDateUTC(p.fechaPago) >= fechaRegistroInicio);
+  const pagosRegistro = pagos.filter(p => {
+    const fechaPago = parseDateUTC(p.fechaPago);
+    return fechaPago >= fechaRegistroInicio && fechaPago <= hoyRegistro;
+  });
 
   // Ordenar por fecha (día) ascendente; dentro del mismo día ordenar por timestampArchivo (hora)
   // Si falta timestampArchivo, usar createdAt como fallback

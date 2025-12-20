@@ -147,11 +147,19 @@ for (let i = 0; i < 3; i++) {
 // Crear pagos (algunos clientes pagan, otros quedan debiendo)
 export let pagos: Pago[] = [];
 const tiposPago = ['Efectivo', 'Transferencia a Jefe', 'Transferencia a Empleado', 'Tarjeta'];
+const hoyMax = new Date();
+hoyMax.setHours(23, 59, 59, 999); // Límite máximo: fin del día actual
+
 ventas.forEach((venta, index) => {
   // 60% de las ventas tienen pagos
   if (Math.random() < 0.6) {
     const fechaPago = new Date(venta.fechaVenta);
     fechaPago.setDate(fechaPago.getDate() + Math.floor(Math.random() * 5)); // Pago entre 0-5 días después
+    
+    // Validar que el pago no sea en el futuro
+    if (fechaPago > hoyMax) {
+      return; // Omitir este pago
+    }
     
     // A veces pago parcial, a veces completo
     const montoPago = Math.random() < 0.7 
